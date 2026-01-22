@@ -10,50 +10,38 @@ The UI must simulate a physical object—specifically the "Royal Game of Ur" art
 * **Styling**: NativeWind (Tailwind CSS) + `react-native-svg` for patterns.
 * **Constraint**: NO layout resizing that breaks game logic. Visuals only.
 
-## 3. Materials & Palette
-Instead of flat colors, we define **Materials**. These should be implemented using background colors overlayed with noise textures or specific border treatments.
+## 3. Materials & Palette (UPDATED)
+The aesthetic targets a "Carved Wood" look rather than "Lapis & Ivory".
 
-### A. The Case (Board Container)
-* **Material**: Dark Lacquered Wood / Bitumen.
-* **Color**: Deep Brown/Black (`bg-slate-900` or `#1a120b`).
-* **Texture**: Subtle grain if possible, or high gloss finish.
-* **Border**: Deep Amber (`border-amber-900`) to simulate the wood frame.
+### A. The Environment (App Background)
+* **Texture**: Vertical Wood Planks.
+* **Color**: Dark Blue-Grey Stained Wood (`bg-[#1e293b]` with black vertical grain lines).
+* **Vibe**: Tabletop surface.
 
-### B. The Tiles (Grid Cells)
-* **Material 1: Ivory (The 'White' Squares)**
-    * **Base**: Cream/Off-White (`bg-[#f3e5ab]`).
-    * **Detail**: Subtle noise to look like bone/shell.
-* **Material 2: Lapis Lazuli (The 'Blue' Squares)**
-    * **Base**: Deep Royal Blue (`bg-[#1e3a8a]`).
-    * **Detail**: Speckled noise to look like stone.
-* **Material 3: Carnelian (Accents/Rosettes)**
-    * **Base**: Deep Red (`#7f1d1d`) or Gold inlays.
+### B. The Board (Container)
+* **Material**: Medium Oak/Wood.
+* **Border**: "The Zig-Zag Inlay". A distinct decorative border pattern consisting of repeating red and white triangles/diamonds.
+* **Shadows**: Deep drop shadows to lift the board off the background planks.
 
-## 4. Typography
-* **Font Family**: *Cinzel* (Google Fonts) loaded via `expo-font`.
-* **Fallback**: Serif.
-* **Treatment**: Text should look engraved or like gold leaf on parchment (`text-amber-400` with `text-shadow`).
+### C. The Tiles (Grid Cells)
+* **Base Material**: Wood grain (identical to board or slightly lighter).
+* **Differentiation**: Do NOT use background colors to distinguish tiles. Use **Inlays/Engravings**:
+    * **Safe/War Tiles**: 5-dot patterns or 4-eye patterns carved into the wood.
+    * **Rosettes**: Bright, colorful 8-pointed flower inlays (Red/Blue/Gold) that pop against the wood.
+* **Depth**: Each tile must look like a separate wooden block with a bevel (inner shadow top-left, highlight bottom-right).
 
-## 5. Component Design Specs
-
-### The Board
-* **Structure**: A rigid grid container styled to look like a physical box.
-* **Depth**: Use layered borders to create 3D volume.
-    * *Example*: `border-b-8 border-r-4 border-black/50` (simulates thickness).
-
-### The Tiles
-* **Shape**: Square, but with distinct "inset" borders to look like they are set *into* the wood.
-* **Patterns**: strictly use SVGs for:
-    * **Rosettes**: 8-pointed star/flower (The Safe Tile).
-    * **Eyes**: 4 dots or "eye" motifs (Decoration).
-    * **Dots**: 5-dot patterns (Decoration).
+## 5. Component Design Specs (UPDATED)
 
 ### The Pieces (Tokens)
-* **Shape**: `rounded-full` (Circular).
+* **Shape**: 3D Spheres/Domes (not flat circles).
 * **Visuals**:
-    * **Player 1**: Pearl/White (Radial gradient or light grey bevel).
-    * **Player 2**: Onyx/Black (Deep grey bevel).
-* **Physics**: Must have a drop shadow (`shadow-lg` + `elevation-5`) to show they are *sitting on top* of the board.
+    * **Player 1**: Light Marble/Pearl with gold star inlay.
+    * **Player 2**: Dark Onyx/Blue with gold star inlay.
+* **Off-Board State**: **Stacked**. Pieces waiting to be played should visually overlap like a stack of coins on the side of the board.
+
+### The Dice
+* **Shape**: 3D Tetrahedrons (Pyramids).
+* **View**: Top-down view of a 3-sided pyramid tip. White tipped corners.
 
 ## 6. Interaction & Feedback
 * **Valid Moves**: Do not just change the color. Add a "Glow" effect or a pulsing semi-transparent overlay (`bg-green-500/30`) to the valid destination tiles.
