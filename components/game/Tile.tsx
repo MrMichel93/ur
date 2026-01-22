@@ -34,6 +34,10 @@ export const Tile: React.FC<TileProps> = ({ row, col, piece, isValidTarget, onPr
                     borderBottomWidth: 4,
                     borderRightWidth: 4,
                 }),
+                // Last move highlight - subtle yellow tint overlay
+                ...(lastMoveDest && {
+                    backgroundColor: '#d4a574', // Slightly lighter oak with yellow tint
+                }),
             }}
         >
             <TouchableOpacity

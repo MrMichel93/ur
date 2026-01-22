@@ -5,6 +5,8 @@ import { View } from 'react-native';
 import { Tile } from './Tile';
 import { ZigZagBorder } from '@/components/ui/ZigZagBorder';
 
+const BOARD_MAX_WIDTH = 672; // 2xl = 42rem = 672px
+
 export const Board: React.FC = () => {
     const gameState = useGameStore(state => state.gameState);
     const validMoves = useGameStore(state => state.validMoves);
@@ -109,13 +111,13 @@ export const Board: React.FC = () => {
     return (
         <View style={{
             width: '100%',
-            maxWidth: 672, // 2xl = 42rem = 672px
+            maxWidth: BOARD_MAX_WIDTH,
             aspectRatio: 8 / 3,
             minHeight: 200,
             alignSelf: 'center',
             padding: 16,
         }}>
-            <ZigZagBorder width={672} height={20} triangleSize={20} orientation="horizontal" />
+            <ZigZagBorder width={BOARD_MAX_WIDTH} height={20} triangleSize={20} orientation="horizontal" />
             <View style={{
                 flex: 1,
                 justifyContent: 'center',
@@ -138,7 +140,7 @@ export const Board: React.FC = () => {
             }}>
                 {renderGrid()}
             </View>
-            <ZigZagBorder width={672} height={20} triangleSize={20} orientation="horizontal" />
+            <ZigZagBorder width={BOARD_MAX_WIDTH} height={20} triangleSize={20} orientation="horizontal" />
         </View>
     );
 };
