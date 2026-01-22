@@ -1,7 +1,7 @@
 import { isRosette, isWarZone } from '@/logic/constants';
 import { PlayerColor } from '@/logic/types';
 import React from 'react';
-import { TouchableOpacity, View } from 'react-native';
+import { TouchableOpacity, View, ViewStyle } from 'react-native';
 import { Piece } from './Piece';
 import { RosetteSVG } from './RosetteSVG';
 import { EyePatternSVG } from './EyePatternSVG';
@@ -27,7 +27,7 @@ export const Tile: React.FC<TileProps> = ({ row, col, piece, isValidTarget, onPr
     const isLapis = row === 1; // Middle war zone row
 
     // Base tile styling with 3D inset effect
-    let tileStyle: any = {
+    let tileStyle: ViewStyle = {
         width: '100%',
         height: '100%',
         aspectRatio: 1,
