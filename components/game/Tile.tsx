@@ -2,7 +2,7 @@ import { isRosette, isWarZone } from '@/logic/constants';
 import { PlayerColor } from '@/logic/types';
 import React from 'react';
 import { TouchableOpacity, View } from 'react-native';
-import Svg, { Circle, Path, Polygon } from 'react-native-svg';
+import Svg, { Circle, Path } from 'react-native-svg';
 import { Piece } from './Piece';
 
 interface TileProps {

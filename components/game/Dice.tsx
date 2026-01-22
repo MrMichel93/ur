@@ -25,7 +25,7 @@ export const Dice: React.FC<DiceProps> = ({ value, rolling, onRoll, canRoll }) =
                 withSpring(0)
             );
         }
-    }, [rolling]);
+    }, [rolling, offset]);
 
     const animatedStyle = useAnimatedStyle(() => ({
         transform: [{ translateY: offset.value }],
