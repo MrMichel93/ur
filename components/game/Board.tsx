@@ -3,6 +3,7 @@ import { useGameStore } from '@/store/useGameStore';
 import React from 'react';
 import { View } from 'react-native';
 import { Tile } from './Tile';
+import { ZigZagBorder } from '@/components/ui/ZigZagBorder';
 
 export const Board: React.FC = () => {
     const gameState = useGameStore(state => state.gameState);
@@ -111,26 +112,33 @@ export const Board: React.FC = () => {
             maxWidth: 672, // 2xl = 42rem = 672px
             aspectRatio: 8 / 3,
             minHeight: 200,
-            justifyContent: 'center',
-            gap: 4,
-            padding: 16,
             alignSelf: 'center',
-            // Dark Lacquered Wood aesthetic
-            backgroundColor: '#1a120b', // Deep brown/black wood
-            borderRadius: 8,
-            // Layered borders for 3D depth (The Case)
-            borderWidth: 8,
-            borderColor: '#78350f', // amber-900 wood frame
-            borderBottomWidth: 12,
-            borderRightWidth: 10,
-            // Outer shadow to lift the board
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 8 },
-            shadowOpacity: 0.5,
-            shadowRadius: 16,
-            elevation: 12,
+            padding: 16,
         }}>
-            {renderGrid()}
+            <ZigZagBorder width={672} height={20} triangleSize={20} orientation="horizontal" />
+            <View style={{
+                flex: 1,
+                justifyContent: 'center',
+                gap: 4,
+                padding: 16,
+                // Medium Oak styling
+                backgroundColor: '#b8906a', // Medium oak color
+                borderRadius: 8,
+                // Layered borders for 3D depth
+                borderWidth: 8,
+                borderColor: '#78350f', // amber-900 wood frame
+                borderBottomWidth: 12,
+                borderRightWidth: 10,
+                // Outer shadow to lift the board
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 8 },
+                shadowOpacity: 0.5,
+                shadowRadius: 16,
+                elevation: 12,
+            }}>
+                {renderGrid()}
+            </View>
+            <ZigZagBorder width={672} height={20} triangleSize={20} orientation="horizontal" />
         </View>
     );
 };
