@@ -17,16 +17,10 @@ export default function Home() {
             <View style={styles.content}>
                 {/* Cosmic title with star effect */}
                 <View style={styles.titleContainer}>
-                    <Text 
-                        style={styles.mainTitle}
-                        className="text-cosmic-star"
-                    >
+                    <Text style={styles.mainTitle}>
                         ROYAL GAME
                     </Text>
-                    <Text 
-                        style={styles.mainTitle}
-                        className="text-cosmic-star"
-                    >
+                    <Text style={styles.mainTitle}>
                         OF UR
                     </Text>
                 </View>
