@@ -27,13 +27,13 @@ export const Tile: React.FC<TileProps> = ({ row, col, piece, isValidTarget, onPr
     const isLapis = row === 1; // Middle war zone row
 
     // Base tile styling with 3D inset effect
-    let baseStyle = {
+    let tileStyle: any = {
         width: '100%',
         height: '100%',
         aspectRatio: 1,
         borderRadius: 4,
-        alignItems: 'center' as const,
-        justifyContent: 'center' as const,
+        alignItems: 'center',
+        justifyContent: 'center',
         margin: 4,
         // 3D inset effect - darker bottom and right borders
         borderBottomWidth: 3,
@@ -44,8 +44,8 @@ export const Tile: React.FC<TileProps> = ({ row, col, piece, isValidTarget, onPr
 
     // Apply material colors
     if (isIvory) {
-        baseStyle = {
-            ...baseStyle,
+        tileStyle = {
+            ...tileStyle,
             backgroundColor: '#f3e5ab', // Ivory cream
             borderBottomColor: '#d4c594',
             borderRightColor: '#d4c594',
@@ -53,8 +53,8 @@ export const Tile: React.FC<TileProps> = ({ row, col, piece, isValidTarget, onPr
             borderLeftColor: '#fef5d4',
         };
     } else if (isLapis) {
-        baseStyle = {
-            ...baseStyle,
+        tileStyle = {
+            ...tileStyle,
             backgroundColor: '#1e3a8a', // Lapis deep blue
             borderBottomColor: '#172554',
             borderRightColor: '#172554',
@@ -65,8 +65,8 @@ export const Tile: React.FC<TileProps> = ({ row, col, piece, isValidTarget, onPr
 
     // Valid target glow overlay
     if (isValidTarget) {
-        baseStyle = {
-            ...baseStyle,
+        tileStyle = {
+            ...tileStyle,
             backgroundColor: isIvory ? '#dcfce7' : '#065f46', // Green tint
             borderBottomColor: '#22c55e',
             borderRightColor: '#22c55e',
@@ -77,8 +77,8 @@ export const Tile: React.FC<TileProps> = ({ row, col, piece, isValidTarget, onPr
 
     // Last move highlight
     if (lastMoveDest) {
-        baseStyle = {
-            ...baseStyle,
+        tileStyle = {
+            ...tileStyle,
             backgroundColor: isIvory ? '#fef3c7' : '#854d0e', // Yellow tint
         };
     }
@@ -87,7 +87,7 @@ export const Tile: React.FC<TileProps> = ({ row, col, piece, isValidTarget, onPr
         <TouchableOpacity
             onPress={onPress}
             disabled={!isValidTarget}
-            style={baseStyle}
+            style={tileStyle}
         >
             {/* Rosette Pattern - 8-pointed star */}
             {rosette && !piece && (
