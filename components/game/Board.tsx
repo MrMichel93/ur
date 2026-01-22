@@ -1,7 +1,8 @@
 import { BOARD_COLS, BOARD_ROWS, PATH_DARK, PATH_LIGHT } from '@/logic/constants';
 import { useGameStore } from '@/store/useGameStore';
+import { LinearGradient } from 'expo-linear-gradient';
 import React from 'react';
-import { View } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { Tile } from './Tile';
 
 export const Board: React.FC = () => {
@@ -106,17 +107,68 @@ export const Board: React.FC = () => {
     };
 
     return (
-        <View style={{
-            width: '100%',
-            maxWidth: 672, // 2xl = 42rem = 672px
-            aspectRatio: 8 / 3,
-            minHeight: 200,
-            justifyContent: 'center',
-            gap: 4,
-            padding: 8,
-            alignSelf: 'center'
-        }}>
-            {renderGrid()}
+        <View style={styles.container}>
+            <LinearGradient
+                colors={['#0a0e1a', '#1a1f35', '#0a0e1a']}
+                style={styles.boardBackground}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+            >
+                {/* Constellation lines overlay */}
+                <View style={styles.constellation}>
+                    {/* Subtle grid pattern for mystical feel */}
+                    <View style={styles.gridOverlay} />
+                </View>
+
+                {/* Board grid */}
+                <View style={styles.boardGrid}>
+                    {renderGrid()}
+                </View>
+            </LinearGradient>
         </View>
     );
 };
+
+const styles = StyleSheet.create({
+    container: {
+        width: '100%',
+        maxWidth: 672, // 2xl = 42rem = 672px
+        aspectRatio: 8 / 3,
+        minHeight: 200,
+        alignSelf: 'center',
+        borderRadius: 12,
+        overflow: 'hidden',
+        shadowColor: '#667eea',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.4,
+        shadowRadius: 16,
+        elevation: 12,
+    },
+    boardBackground: {
+        width: '100%',
+        height: '100%',
+        padding: 8,
+        borderWidth: 2,
+        borderColor: 'rgba(232, 213, 183, 0.2)',
+        borderRadius: 12,
+    },
+    constellation: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+    },
+    gridOverlay: {
+        flex: 1,
+        opacity: 0.1,
+        backgroundColor: 'transparent',
+        borderWidth: 1,
+        borderColor: '#4a5568',
+    },
+    boardGrid: {
+        flex: 1,
+        justifyContent: 'center',
+        gap: 4,
+    },
+});
