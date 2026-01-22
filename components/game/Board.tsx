@@ -114,16 +114,8 @@ export const Board: React.FC = () => {
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
             >
-                {/* Constellation lines overlay */}
-                <View style={styles.constellation}>
-                    {/* Subtle grid pattern for mystical feel */}
-                    <View style={styles.gridOverlay} />
-                </View>
-
                 {/* Board grid */}
-                <View style={styles.boardGrid}>
-                    {renderGrid()}
-                </View>
+                {renderGrid()}
             </LinearGradient>
         </View>
     );
@@ -151,23 +143,6 @@ const styles = StyleSheet.create({
         borderWidth: 2,
         borderColor: 'rgba(232, 213, 183, 0.2)',
         borderRadius: 12,
-    },
-    constellation: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-    },
-    gridOverlay: {
-        flex: 1,
-        opacity: 0.1,
-        backgroundColor: 'transparent',
-        borderWidth: 1,
-        borderColor: '#4a5568',
-    },
-    boardGrid: {
-        flex: 1,
         justifyContent: 'center',
         gap: 4,
     },

@@ -129,23 +129,24 @@ export default function GameRoom() {
                     </LinearGradient>
                 </View>
 
-                {/* Decorative stars */}
-                <View style={styles.starsContainer}>
-                    {[...Array(30)].map((_, i) => (
-                        <View
-                            key={i}
-                            style={[
-                                styles.star,
-                                {
-                                    top: `${Math.random() * 100}%`,
-                                    left: `${Math.random() * 100}%`,
-                                    opacity: 0.2 + Math.random() * 0.4,
-                                }
-                            ]}
-                        />
-                    ))}
-                </View>
             </ScrollView>
+
+            {/* Decorative stars - outside ScrollView */}
+            <View style={styles.starsContainer} pointerEvents="none">
+                {[...Array(30)].map((_, i) => (
+                    <View
+                        key={i}
+                        style={[
+                            styles.star,
+                            {
+                                top: `${Math.random() * 100}%`,
+                                left: `${Math.random() * 100}%`,
+                                opacity: 0.2 + Math.random() * 0.4,
+                            }
+                        ]}
+                    />
+                ))}
+            </View>
 
             {/* Win Modal */}
             <Modal
@@ -290,7 +291,7 @@ const styles = StyleSheet.create({
         left: 0,
         right: 0,
         bottom: 0,
-        zIndex: -1,
+        zIndex: 0,
     },
     star: {
         position: 'absolute',
