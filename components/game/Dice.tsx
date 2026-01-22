@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming } from 'react-native-reanimated';
+import { SERIF_FONT } from '@/constants/typography';
 
 interface DiceProps {
     value: number | null; // 0-4
@@ -15,6 +16,8 @@ export const Dice: React.FC<DiceProps> = ({ value, rolling, onRoll, canRoll }) =
     // Use simple rotation or bounce
     const offset = useSharedValue(0);
 
+    // SharedValues from react-native-reanimated should NOT be in dependency arrays
+    // as they don't trigger re-renders and can cause infinite loops
     useEffect(() => {
         if (rolling) {
             offset.value = withSequence(
@@ -25,7 +28,8 @@ export const Dice: React.FC<DiceProps> = ({ value, rolling, onRoll, canRoll }) =
                 withSpring(0)
             );
         }
-    }, [rolling, offset]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [rolling]);
 
     const animatedStyle = useAnimatedStyle(() => ({
         transform: [{ translateY: offset.value }],
@@ -101,7 +105,7 @@ export const Dice: React.FC<DiceProps> = ({ value, rolling, onRoll, canRoll }) =
                 textTransform: 'uppercase',
                 fontSize: 14,
                 letterSpacing: 1.5,
-                fontFamily: 'serif',
+                fontFamily: SERIF_FONT,
             }}>
                 {rolling ? 'Rolling...' : value !== null ? `Rolled: ${value}` : 'Tap to Roll Dice'}
             </Text>

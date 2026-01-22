@@ -1,6 +1,7 @@
 import { Board } from '@/components/game/Board';
 import { Dice } from '@/components/game/Dice';
 import { Modal } from '@/components/ui/Modal';
+import { SERIF_FONT } from '@/constants/typography';
 import { useGameLoop } from '@/hooks/useGameLoop';
 import { useGameStore } from '@/store/useGameStore';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
@@ -65,14 +66,14 @@ export default function GameRoom() {
                             fontWeight: 'bold',
                             color: '#1e40af', // Lapis blue
                             fontSize: 16,
-                            fontFamily: 'serif',
+                            fontFamily: SERIF_FONT,
                             letterSpacing: 1,
                         }}>YOU</Text>
                         <Text style={{ 
                             color: '#57534e',
                             fontSize: 13,
                             marginTop: 4,
-                            fontFamily: 'serif',
+                            fontFamily: SERIF_FONT,
                         }}>Finished: {gameState.light.finishedCount}/7</Text>
                     </View>
                     <View style={{
@@ -93,14 +94,14 @@ export default function GameRoom() {
                             fontWeight: 'bold',
                             color: '#292524', // Onyx
                             fontSize: 16,
-                            fontFamily: 'serif',
+                            fontFamily: SERIF_FONT,
                             letterSpacing: 1,
                         }}>BOT</Text>
                         <Text style={{ 
                             color: '#57534e',
                             fontSize: 13,
                             marginTop: 4,
-                            fontFamily: 'serif',
+                            fontFamily: SERIF_FONT,
                         }}>Finished: {gameState.dark.finishedCount}/7</Text>
                     </View>
                 </View>
@@ -127,7 +128,7 @@ export default function GameRoom() {
                         letterSpacing: 2,
                         textAlign: 'center',
                         fontSize: 14,
-                        fontFamily: 'serif',
+                        fontFamily: SERIF_FONT,
                     }}>
                         {isMyTurn ? "Your Turn" : "Opponent's Turn"}
                     </Text>
@@ -213,7 +214,7 @@ export default function GameRoom() {
                             fontWeight: 'bold',
                             fontSize: 16,
                             color: '#78350f', // Deep amber text
-                            fontFamily: 'serif',
+                            fontFamily: SERIF_FONT,
                             letterSpacing: 1.5,
                         }}>Game History</Text>
                         <View style={{ 
@@ -229,7 +230,7 @@ export default function GameRoom() {
                             fontSize: 13,
                             color: '#44403c', // Stone-700
                             lineHeight: 20,
-                            fontFamily: 'serif',
+                            fontFamily: SERIF_FONT,
                             marginBottom: 4,
                         }}>{log}</Text>
                     ))}
