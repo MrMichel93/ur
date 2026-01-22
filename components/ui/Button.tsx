@@ -1,5 +1,5 @@
 import React from 'react';
-import { ActivityIndicator, Text, TouchableOpacity, TouchableOpacityProps } from 'react-native';
+import { ActivityIndicator, Text, TextStyle, TouchableOpacity, TouchableOpacityProps, ViewStyle } from 'react-native';
 
 interface ButtonProps extends TouchableOpacityProps {
     title: string;
@@ -8,7 +8,7 @@ interface ButtonProps extends TouchableOpacityProps {
 }
 
 export const Button: React.FC<ButtonProps> = ({ title, variant = 'primary', loading, className, ...props }) => {
-    let baseStyle: any = {
+    let baseStyle: ViewStyle = {
         paddingHorizontal: 24,
         paddingVertical: 16,
         borderRadius: 16,
@@ -18,12 +18,12 @@ export const Button: React.FC<ButtonProps> = ({ title, variant = 'primary', load
         minHeight: 56,
     };
     
-    let textStyle: any = {
+    let textStyle: TextStyle = {
         fontSize: 18,
         fontWeight: 'bold',
         textAlign: 'center',
         letterSpacing: 0.5,
-        textTransform: 'uppercase' as const,
+        textTransform: 'uppercase',
     };
 
     if (variant === 'primary') {
