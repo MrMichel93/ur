@@ -4,6 +4,7 @@ import { View, ViewProps } from 'react-native';
 interface TileBaseProps extends ViewProps {
   children?: React.ReactNode;
   size?: number;
+  className?: string;
 }
 
 /**

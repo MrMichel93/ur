@@ -34,7 +34,7 @@ export const ZigZagBorder: React.FC<ZigZagBorderProps> = ({
     ? Math.floor(width / triangleSize)
     : Math.floor(height / triangleSize);
   
-  // Generate triangle pairs
+  // Generate triangles for zigzag pattern
   const triangles = [];
   
   for (let i = 0; i < triangleCount; i++) {
@@ -42,49 +42,53 @@ export const ZigZagBorder: React.FC<ZigZagBorderProps> = ({
     const color = isRed ? redColor : creamColor;
     
     if (orientation === 'horizontal') {
-      // Horizontal zigzag: triangles pointing up and down
+      // Horizontal zigzag: triangles alternating top and bottom
       const x = i * triangleSize;
       
-      // Upper triangle (pointing up)
-      triangles.push(
-        <Polygon
-          key={`upper-${i}`}
-          points={`${x},${height} ${x + triangleSize},${height} ${x + triangleSize / 2},0`}
-          fill={color}
-        />
-      );
-      
-      // Lower triangle (pointing down) - alternate color
-      const lowerColor = isRed ? creamColor : redColor;
-      triangles.push(
-        <Polygon
-          key={`lower-${i}`}
-          points={`${x},0 ${x + triangleSize},0 ${x + triangleSize / 2},${height}`}
-          fill={lowerColor}
-        />
-      );
+      // Create a triangle that alternates between pointing up and down
+      if (isRed) {
+        // Triangle pointing down from top
+        triangles.push(
+          <Polygon
+            key={`tri-${i}`}
+            points={`${x},0 ${x + triangleSize},0 ${x + triangleSize / 2},${height}`}
+            fill={color}
+          />
+        );
+      } else {
+        // Triangle pointing up from bottom
+        triangles.push(
+          <Polygon
+            key={`tri-${i}`}
+            points={`${x},${height} ${x + triangleSize},${height} ${x + triangleSize / 2},0`}
+            fill={color}
+          />
+        );
+      }
     } else {
-      // Vertical zigzag: triangles pointing left and right
+      // Vertical zigzag: triangles alternating left and right
       const y = i * triangleSize;
       
-      // Left triangle (pointing left)
-      triangles.push(
-        <Polygon
-          key={`left-${i}`}
-          points={`${width},${y} ${width},${y + triangleSize} 0,${y + triangleSize / 2}`}
-          fill={color}
-        />
-      );
-      
-      // Right triangle (pointing right) - alternate color
-      const rightColor = isRed ? creamColor : redColor;
-      triangles.push(
-        <Polygon
-          key={`right-${i}`}
-          points={`0,${y} 0,${y + triangleSize} ${width},${y + triangleSize / 2}`}
-          fill={rightColor}
-        />
-      );
+      // Create a triangle that alternates between pointing left and right
+      if (isRed) {
+        // Triangle pointing right from left edge
+        triangles.push(
+          <Polygon
+            key={`tri-${i}`}
+            points={`0,${y} 0,${y + triangleSize} ${width},${y + triangleSize / 2}`}
+            fill={color}
+          />
+        );
+      } else {
+        // Triangle pointing left from right edge
+        triangles.push(
+          <Polygon
+            key={`tri-${i}`}
+            points={`${width},${y} ${width},${y + triangleSize} 0,${y + triangleSize / 2}`}
+            fill={color}
+          />
+        );
+      }
     }
   }
   

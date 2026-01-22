@@ -1,6 +1,6 @@
 import React from 'react';
 import { View } from 'react-native';
-import Svg, { Path, Circle, Polygon } from 'react-native-svg';
+import Svg, { Circle, Polygon } from 'react-native-svg';
 
 interface RosetteInlayProps {
   size?: number;

@@ -4,6 +4,7 @@ import Svg, { Line } from 'react-native-svg';
 
 interface WoodTextureViewProps extends ViewProps {
   children?: React.ReactNode;
+  className?: string;
 }
 
 /**
