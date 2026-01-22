@@ -41,58 +41,49 @@ export default function GameRoom() {
     };
 
     return (
-        <View className="flex-1 bg-mesopotamia-night">
+        <View className="flex-1 bg-stone-light">
             <Stack.Screen options={{ title: `Game #${id}` }} />
 
             <ScrollView contentContainerStyle={{ padding: 16, alignItems: 'center' }}>
                 {/* Status Bar */}
-                <View className="flex-row justify-between w-full mb-6 px-2">
-                    <View className="items-center bg-mesopotamia-dusk/60 px-6 py-3 rounded-2xl border border-player-light-glow/30">
-                        <Text className="font-bold text-player-light-glow text-base">YOU</Text>
-                        <Text className="text-desert-sand text-sm mt-1">Finished: {gameState.light.finishedCount}/7</Text>
+                <View className="flex-row justify-between w-full mb-8">
+                    <View className="items-center">
+                        <Text className="font-bold text-royal-blue text-lg">YOU (Light)</Text>
+                        <Text>Finished: {gameState.light.finishedCount}/7</Text>
                     </View>
-                    <View className="items-center bg-mesopotamia-dusk/60 px-6 py-3 rounded-2xl border border-player-dark-glow/30">
-                        <Text className="font-bold text-player-dark-glow text-base">BOT</Text>
-                        <Text className="text-desert-sand text-sm mt-1">Finished: {gameState.dark.finishedCount}/7</Text>
+                    <View className="items-center">
+                        <Text className="font-bold text-slate-700 text-lg">BOT (Dark)</Text>
+                        <Text>Finished: {gameState.dark.finishedCount}/7</Text>
                     </View>
                 </View>
 
                 {/* Turn Indicator */}
-                <View className={`mb-6 px-6 py-3 rounded-full shadow-lg ${isMyTurn ? 'bg-player-light' : 'bg-player-dark'}`}>
-                    <Text className="text-white font-bold uppercase tracking-wider text-center">
-                        {isMyTurn ? "Your Turn" : "Opponent's Turn"}
+                <View className={`mb-4 px-4 py-2 rounded-full ${isMyTurn ? 'bg-royal-blue' : 'bg-slate-700'}`}>
+                    <Text className="text-white font-bold uppercase">
+                        {isMyTurn ? "Your Turn" : "Opponent Turn"}
                     </Text>
                 </View>
 
-                {/* Board Container - High contrast background */}
-                <View className="bg-desert-sand rounded-3xl shadow-board p-6 mb-6" style={{ 
-                    shadowColor: '#000',
-                    shadowOffset: { width: 0, height: 20 },
-                    shadowOpacity: 0.5,
-                    shadowRadius: 30,
-                    elevation: 20,
-                }}>
-                    {/* Inner border for luxury feel */}
-                    <View className="border-2 border-royal-amber/40 rounded-2xl p-2">
-                        <Board />
-                    </View>
-                </View>
+                {/* Board */}
+                <Board />
 
                 {/* Controls */}
-                <View className="mt-4 w-full max-w-xs">
+                <View className="mt-8 w-full max-w-xs">
                     <Dice
                         value={gameState.rollValue}
-                        rolling={false}
+                        rolling={false} // Animation logic handled in Dice component via effect? 
+                        // Actually we pass 'rolling' prop if we want to show rolling state.
+                        // For now simple.
                         onRoll={handleRoll}
                         canRoll={canRoll}
                     />
                 </View>
 
                 {/* History Log */}
-                <View className="mt-6 w-full bg-mesopotamia-dusk/80 p-5 rounded-2xl border border-royal-gold/20">
-                    <Text className="font-bold mb-3 text-royal-gold text-base">Game History</Text>
+                <View className="mt-8 w-full bg-white p-4 rounded-lg bg-opacity-50">
+                    <Text className="font-bold mb-2">Game Log:</Text>
                     {gameState.history.slice(-3).map((log, i) => (
-                        <Text key={i} className="text-sm text-desert-sand/90 leading-5">{log}</Text>
+                        <Text key={i} className="text-xs text-gray-500">{log}</Text>
                     ))}
                 </View>
 

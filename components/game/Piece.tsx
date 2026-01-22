@@ -8,12 +8,10 @@ interface PieceProps {
 }
 
 export const Piece: React.FC<PieceProps> = ({ color, highlight }) => {
-    // High contrast pieces on light tiles
-    // Light player = Deep Blue (lapis lazuli)
-    // Dark player = Deep Red (terracotta)
-    const bgColor = color === 'light' ? '#1e40af' : '#991b1b'; // player-light : player-dark
-    const borderColor = color === 'light' ? '#3b82f6' : '#dc2626'; // player-light-glow : player-dark-glow
-    const innerBgColor = '#f59e0b'; // royal-gold for both
+    // Light = White/Gold, Dark = Black/Obsidian
+    const bgColor = color === 'light' ? '#f5f5f4' : '#1e293b'; // stone-100 : slate-800
+    const borderColor = color === 'light' ? '#1e3a8a' : '#ffffff'; // royal-blue : white
+    const innerBgColor = color === 'light' ? '#f59e0b' : '#f59e0b'; // royal-gold for both
 
     return (
         <View style={{
@@ -21,26 +19,23 @@ export const Piece: React.FC<PieceProps> = ({ color, highlight }) => {
             height: 40,
             borderRadius: 20,
             backgroundColor: bgColor,
-            borderWidth: highlight ? 4 : 2,
-            borderColor: highlight ? '#fbbf24' : borderColor,
+            borderWidth: highlight ? 4 : 1,
+            borderColor: borderColor,
             alignItems: 'center',
             justifyContent: 'center',
             shadowColor: '#000',
-            shadowOffset: { width: 0, height: 3 },
-            shadowOpacity: 0.4,
-            shadowRadius: 5,
-            elevation: 8,
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.25,
+            shadowRadius: 3.84,
+            elevation: 5,
         }}>
-            {/* Inner detail - gold dot */}
+            {/* Inner detail */}
             <View style={{
-                width: 16,
-                height: 16,
-                borderRadius: 8,
-                backgroundColor: innerBgColor,
-                shadowColor: innerBgColor,
-                shadowOffset: { width: 0, height: 0 },
-                shadowOpacity: 0.8,
-                shadowRadius: 4,
+                width: 24,
+                height: 24,
+                borderRadius: 12,
+                opacity: 0.5,
+                backgroundColor: innerBgColor
             }} />
         </View>
     );

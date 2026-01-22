@@ -13,58 +13,10 @@ interface ModalProps {
 export const Modal: React.FC<ModalProps> = ({ visible, title, message, actionLabel, onAction }) => {
     return (
         <RNModal transparent visible={visible} animationType="fade">
-            <View style={{ 
-                flex: 1, 
-                backgroundColor: 'rgba(0, 0, 0, 0.75)', 
-                alignItems: 'center', 
-                justifyContent: 'center', 
-                padding: 16 
-            }}>
-                <View style={{
-                    backgroundColor: '#fef3c7', // desert-sand
-                    padding: 32,
-                    borderRadius: 24,
-                    width: '100%',
-                    maxWidth: 400,
-                    borderWidth: 3,
-                    borderColor: '#f59e0b', // royal-gold
-                    alignItems: 'center',
-                    shadowColor: '#000',
-                    shadowOffset: { width: 0, height: 20 },
-                    shadowOpacity: 0.6,
-                    shadowRadius: 30,
-                    elevation: 25,
-                }}>
-                    {/* Decorative top element */}
-                    <View style={{
-                        width: 60,
-                        height: 4,
-                        backgroundColor: '#f59e0b',
-                        borderRadius: 2,
-                        marginBottom: 16,
-                    }} />
-                    
-                    <Text style={{
-                        fontSize: 32,
-                        fontWeight: 'bold',
-                        color: '#1e40af', // player-light
-                        marginBottom: 12,
-                        textAlign: 'center',
-                        letterSpacing: 1.5,
-                        textTransform: 'uppercase',
-                    }}>
-                        {title}
-                    </Text>
-                    
-                    <Text style={{
-                        fontSize: 16,
-                        color: '#57534e', // stone-600
-                        textAlign: 'center',
-                        marginBottom: 24,
-                        lineHeight: 24,
-                    }}>
-                        {message}
-                    </Text>
+            <View className="flex-1 bg-black/50 items-center justify-center p-4">
+                <View className="bg-stone-100 p-6 rounded-2xl w-full max-w-sm border-4 border-royal-blue items-center shadow-xl">
+                    <Text className="text-2xl font-bold text-royal-blue mb-2 font-serif">{title}</Text>
+                    <Text className="text-slate-700 text-center mb-6">{message}</Text>
 
                     <Button title={actionLabel} onPress={onAction} />
                 </View>
