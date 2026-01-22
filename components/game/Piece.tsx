@@ -1,6 +1,6 @@
 import { PlayerColor } from '@/logic/types';
 import React from 'react';
-import { View } from 'react-native';
+import { Platform, View } from 'react-native';
 
 interface PieceProps {
     color: PlayerColor;
@@ -8,12 +8,28 @@ interface PieceProps {
 }
 
 export const Piece: React.FC<PieceProps> = ({ color, highlight }) => {
-    // High contrast pieces on light tiles
-    // Light player = Deep Blue (lapis lazuli)
-    // Dark player = Deep Red (terracotta)
-    const bgColor = color === 'light' ? '#1e40af' : '#991b1b'; // player-light : player-dark
-    const borderColor = color === 'light' ? '#3b82f6' : '#dc2626'; // player-light-glow : player-dark-glow
-    const innerBgColor = '#f59e0b'; // royal-gold for both
+    // Pearl (Light Player) vs Onyx (Dark Player)
+    // Light = Pearl/White with radial gradient effect
+    // Dark = Onyx/Black with deep grey bevel
+    
+    const isPearl = color === 'light';
+    
+    // Pearl: Cream/White tones
+    const pearlBg = '#f5f5f4'; // Light grey/cream
+    const pearlBorder = '#e7e5e4'; // Lighter border
+    const pearlInner = '#ffffff'; // Pure white center
+    
+    // Onyx: Deep black/grey tones  
+    const onyxBg = '#292524'; // Deep grey/black
+    const onyxBorder = '#1c1917'; // Darker border
+    const onyxInner = '#44403c'; // Mid grey center
+    
+    const bgColor = isPearl ? pearlBg : onyxBg;
+    const borderColor = isPearl ? pearlBorder : onyxBorder;
+    const innerColor = isPearl ? pearlInner : onyxInner;
+    
+    // Highlight with gold when selected
+    const highlightColor = '#f59e0b';
 
     return (
         <View style={{
@@ -21,27 +37,49 @@ export const Piece: React.FC<PieceProps> = ({ color, highlight }) => {
             height: 40,
             borderRadius: 20,
             backgroundColor: bgColor,
-            borderWidth: highlight ? 4 : 2,
-            borderColor: highlight ? '#fbbf24' : borderColor,
+            borderWidth: highlight ? 3 : 2,
+            borderColor: highlight ? highlightColor : borderColor,
             alignItems: 'center',
             justifyContent: 'center',
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 3 },
-            shadowOpacity: 0.4,
-            shadowRadius: 5,
-            elevation: 8,
+            // iOS Shadow properties
+            ...Platform.select({
+                ios: {
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 4 },
+                    shadowOpacity: 0.5,
+                    shadowRadius: 6,
+                },
+                android: {
+                    elevation: 8,
+                },
+            }),
         }}>
-            {/* Inner detail - gold dot */}
+            {/* Inner bevel/highlight - creates 3D checker look */}
             <View style={{
-                width: 16,
-                height: 16,
-                borderRadius: 8,
-                backgroundColor: innerBgColor,
-                shadowColor: innerBgColor,
+                width: 20,
+                height: 20,
+                borderRadius: 10,
+                backgroundColor: innerColor,
+                shadowColor: innerColor,
                 shadowOffset: { width: 0, height: 0 },
-                shadowOpacity: 0.8,
-                shadowRadius: 4,
+                shadowOpacity: 0.6,
+                shadowRadius: 3,
             }} />
+            
+            {/* Highlight glow when selected */}
+            {highlight && (
+                <View style={{
+                    position: 'absolute',
+                    top: -2,
+                    left: -2,
+                    right: -2,
+                    bottom: -2,
+                    borderRadius: 22,
+                    borderWidth: 2,
+                    borderColor: highlightColor,
+                    opacity: 0.4,
+                }} />
+            )}
         </View>
     );
 };

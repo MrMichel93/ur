@@ -45,35 +45,120 @@ export default function GameRoom() {
             <Stack.Screen options={{ title: `Game #${id}` }} />
 
             <ScrollView contentContainerStyle={{ padding: 16, alignItems: 'center' }}>
-                {/* Status Bar */}
+                {/* Status Bar - Museum Display Labels */}
                 <View className="flex-row justify-between w-full mb-6 px-2">
-                    <View className="items-center bg-mesopotamia-dusk/60 px-6 py-3 rounded-2xl border border-player-light-glow/30">
-                        <Text className="font-bold text-player-light-glow text-base">YOU</Text>
-                        <Text className="text-desert-sand text-sm mt-1">Finished: {gameState.light.finishedCount}/7</Text>
+                    <View style={{
+                        alignItems: 'center',
+                        backgroundColor: '#f3e5ab', // Parchment
+                        paddingHorizontal: 24,
+                        paddingVertical: 12,
+                        borderRadius: 8,
+                        borderWidth: 2,
+                        borderColor: '#92400e',
+                        shadowColor: '#000',
+                        shadowOffset: { width: 0, height: 2 },
+                        shadowOpacity: 0.2,
+                        shadowRadius: 4,
+                        elevation: 3,
+                    }}>
+                        <Text style={{ 
+                            fontWeight: 'bold',
+                            color: '#1e40af', // Lapis blue
+                            fontSize: 16,
+                            fontFamily: 'serif',
+                            letterSpacing: 1,
+                        }}>YOU</Text>
+                        <Text style={{ 
+                            color: '#57534e',
+                            fontSize: 13,
+                            marginTop: 4,
+                            fontFamily: 'serif',
+                        }}>Finished: {gameState.light.finishedCount}/7</Text>
                     </View>
-                    <View className="items-center bg-mesopotamia-dusk/60 px-6 py-3 rounded-2xl border border-player-dark-glow/30">
-                        <Text className="font-bold text-player-dark-glow text-base">BOT</Text>
-                        <Text className="text-desert-sand text-sm mt-1">Finished: {gameState.dark.finishedCount}/7</Text>
+                    <View style={{
+                        alignItems: 'center',
+                        backgroundColor: '#f3e5ab', // Parchment
+                        paddingHorizontal: 24,
+                        paddingVertical: 12,
+                        borderRadius: 8,
+                        borderWidth: 2,
+                        borderColor: '#92400e',
+                        shadowColor: '#000',
+                        shadowOffset: { width: 0, height: 2 },
+                        shadowOpacity: 0.2,
+                        shadowRadius: 4,
+                        elevation: 3,
+                    }}>
+                        <Text style={{ 
+                            fontWeight: 'bold',
+                            color: '#292524', // Onyx
+                            fontSize: 16,
+                            fontFamily: 'serif',
+                            letterSpacing: 1,
+                        }}>BOT</Text>
+                        <Text style={{ 
+                            color: '#57534e',
+                            fontSize: 13,
+                            marginTop: 4,
+                            fontFamily: 'serif',
+                        }}>Finished: {gameState.dark.finishedCount}/7</Text>
                     </View>
                 </View>
 
-                {/* Turn Indicator */}
-                <View className={`mb-6 px-6 py-3 rounded-full shadow-lg ${isMyTurn ? 'bg-player-light' : 'bg-player-dark'}`}>
-                    <Text className="text-white font-bold uppercase tracking-wider text-center">
+                {/* Turn Indicator - Engraved Style */}
+                <View style={{
+                    marginBottom: 24,
+                    paddingHorizontal: 24,
+                    paddingVertical: 12,
+                    borderRadius: 20,
+                    backgroundColor: isMyTurn ? '#f3e5ab' : '#e7e5e4',
+                    borderWidth: 2,
+                    borderColor: isMyTurn ? '#92400e' : '#78716c',
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 3 },
+                    shadowOpacity: 0.3,
+                    shadowRadius: 6,
+                    elevation: 6,
+                }}>
+                    <Text style={{
+                        color: isMyTurn ? '#78350f' : '#44403c',
+                        fontWeight: 'bold',
+                        textTransform: 'uppercase',
+                        letterSpacing: 2,
+                        textAlign: 'center',
+                        fontSize: 14,
+                        fontFamily: 'serif',
+                    }}>
                         {isMyTurn ? "Your Turn" : "Opponent's Turn"}
                     </Text>
                 </View>
 
-                {/* Board Container - High contrast background */}
-                <View className="bg-desert-sand rounded-3xl shadow-board p-6 mb-6" style={{ 
+                {/* Board Container - Dark Lacquered Wood Frame */}
+                <View style={{
+                    backgroundColor: '#1a120b', // Deep brown/black wood
+                    borderRadius: 16,
+                    padding: 16,
+                    borderWidth: 4,
+                    borderColor: '#92400e', // Amber border
+                    // Layered depth
+                    borderBottomWidth: 6,
+                    borderRightWidth: 6,
+                    borderBottomColor: '#000000',
+                    borderRightColor: '#000000',
+                    marginBottom: 24,
                     shadowColor: '#000',
-                    shadowOffset: { width: 0, height: 20 },
-                    shadowOpacity: 0.5,
-                    shadowRadius: 30,
+                    shadowOffset: { width: 0, height: 15 },
+                    shadowOpacity: 0.6,
+                    shadowRadius: 25,
                     elevation: 20,
                 }}>
-                    {/* Inner border for luxury feel */}
-                    <View className="border-2 border-royal-amber/40 rounded-2xl p-2">
+                    {/* Inner decorative border */}
+                    <View style={{
+                        borderWidth: 1,
+                        borderColor: '#d97706',
+                        borderRadius: 8,
+                        padding: 8,
+                    }}>
                         <Board />
                     </View>
                 </View>
@@ -88,11 +173,65 @@ export default function GameRoom() {
                     />
                 </View>
 
-                {/* History Log */}
-                <View className="mt-6 w-full bg-mesopotamia-dusk/80 p-5 rounded-2xl border border-royal-gold/20">
-                    <Text className="font-bold mb-3 text-royal-gold text-base">Game History</Text>
+                {/* History Log - Museum Plaque / Parchment Style */}
+                <View style={{
+                    marginTop: 24,
+                    width: '100%',
+                    backgroundColor: '#f3e5ab', // Parchment/Ivory color
+                    padding: 20,
+                    borderRadius: 8,
+                    borderWidth: 3,
+                    borderColor: '#92400e', // Deep amber/bronze border
+                    // 3D frame effect
+                    borderBottomWidth: 5,
+                    borderRightWidth: 5,
+                    borderBottomColor: '#78350f',
+                    borderRightColor: '#78350f',
+                    shadowColor: '#000',
+                    shadowOffset: { width: 2, height: 4 },
+                    shadowOpacity: 0.3,
+                    shadowRadius: 8,
+                    elevation: 5,
+                }}>
+                    {/* Ornate header bar */}
+                    <View style={{ 
+                        flexDirection: 'row', 
+                        alignItems: 'center', 
+                        marginBottom: 12,
+                        paddingBottom: 8,
+                        borderBottomWidth: 1,
+                        borderBottomColor: '#92400e',
+                    }}>
+                        <View style={{ 
+                            width: 8, 
+                            height: 8, 
+                            backgroundColor: '#92400e', 
+                            borderRadius: 4,
+                            marginRight: 8,
+                        }} />
+                        <Text style={{ 
+                            fontWeight: 'bold',
+                            fontSize: 16,
+                            color: '#78350f', // Deep amber text
+                            fontFamily: 'serif',
+                            letterSpacing: 1.5,
+                        }}>Game History</Text>
+                        <View style={{ 
+                            width: 8, 
+                            height: 8, 
+                            backgroundColor: '#92400e', 
+                            borderRadius: 4,
+                            marginLeft: 8,
+                        }} />
+                    </View>
                     {gameState.history.slice(-3).map((log, i) => (
-                        <Text key={i} className="text-sm text-desert-sand/90 leading-5">{log}</Text>
+                        <Text key={i} style={{ 
+                            fontSize: 13,
+                            color: '#44403c', // Stone-700
+                            lineHeight: 20,
+                            fontFamily: 'serif',
+                            marginBottom: 4,
+                        }}>{log}</Text>
                     ))}
                 </View>
 

@@ -111,12 +111,31 @@ export const Board: React.FC = () => {
             maxWidth: 672, // 2xl = 42rem = 672px
             aspectRatio: 8 / 3,
             minHeight: 200,
-            justifyContent: 'center',
-            gap: 4,
-            padding: 8,
             alignSelf: 'center'
         }}>
-            {renderGrid()}
+            {/* Dark Lacquered Wood Box - The Case */}
+            <View style={{
+                flex: 1,
+                backgroundColor: '#1a120b', // Deep Brown/Black
+                borderWidth: 6,
+                borderColor: '#92400e', // border-amber-900
+                borderRadius: 12,
+                // Layered borders for depth (3D box effect)
+                borderBottomWidth: 8,
+                borderRightWidth: 8,
+                borderBottomColor: '#000000',
+                borderRightColor: '#000000',
+                padding: 8,
+                justifyContent: 'center',
+                gap: 4,
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 10 },
+                shadowOpacity: 0.8,
+                shadowRadius: 20,
+                elevation: 15,
+            }}>
+                {renderGrid()}
+            </View>
         </View>
     );
 };

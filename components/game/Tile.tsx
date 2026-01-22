@@ -2,6 +2,7 @@ import { isRosette, isWarZone } from '@/logic/constants';
 import { PlayerColor } from '@/logic/types';
 import React from 'react';
 import { TouchableOpacity, View } from 'react-native';
+import Svg, { Circle, Path, Polygon } from 'react-native-svg';
 import { Piece } from './Piece';
 
 interface TileProps {
@@ -14,33 +15,57 @@ interface TileProps {
     lastMoveDest?: boolean;
 }
 
+// SVG Component for 8-pointed star rosette pattern
+const RosetteStar: React.FC<{ color: string }> = ({ color }) => (
+    <Svg width="40" height="40" viewBox="0 0 40 40" style={{ position: 'absolute' }}>
+        {/* 8-pointed star - historical Ur rosette pattern */}
+        <Path
+            d="M20 2 L22 18 L38 20 L22 22 L20 38 L18 22 L2 20 L18 18 Z"
+            fill={color}
+            opacity={0.4}
+        />
+        <Circle cx="20" cy="20" r="8" fill={color} opacity={0.6} />
+        {/* Inner detail circles */}
+        <Circle cx="20" cy="20" r="3" fill={color} opacity={0.9} />
+    </Svg>
+);
+
+// SVG Component for Eye/Dots decoration
+const EyePattern: React.FC<{ color: string }> = ({ color }) => (
+    <Svg width="30" height="30" viewBox="0 0 30 30" style={{ position: 'absolute' }}>
+        {/* 4 dots in corners pattern */}
+        <Circle cx="8" cy="8" r="2.5" fill={color} opacity={0.5} />
+        <Circle cx="22" cy="8" r="2.5" fill={color} opacity={0.5} />
+        <Circle cx="8" cy="22" r="2.5" fill={color} opacity={0.5} />
+        <Circle cx="22" cy="22" r="2.5" fill={color} opacity={0.5} />
+    </Svg>
+);
+
 export const Tile: React.FC<TileProps> = ({ row, col, piece, isValidTarget, onPress, lastMoveSource, lastMoveDest }) => {
     const rosette = isRosette(row, col);
     const war = isWarZone(row, col);
 
-    // Base tile color - warm sandy tone
-    let backgroundColor = '#fde68a'; // tile-normal (golden sand)
-    let borderColor = '#d97706'; // tile-border (deep amber)
-    let borderWidth = 1;
+    // Material 1: Ivory (Cream/Off-White) - The "White" Squares
+    // Material 2: Lapis Lazuli (Deep Royal Blue) - The "Blue" Squares
+    let backgroundColor = '#f3e5ab'; // Ivory base
+    let borderColor = '#d97706'; // Deep amber border
+    let borderWidth = 2;
+    let insetBorderColor = '#a16207'; // Darker amber for 3D inset
     
-    // Rosette tiles - distinct lapis blue with gold border
+    // Rosette tiles - Lapis Lazuli with gold accents
     if (rosette) {
-        backgroundColor = '#3b82f6'; // Lapis blue
-        borderColor = '#f59e0b'; // royal-gold
+        backgroundColor = '#1e3a8a'; // Deep Royal Blue (Lapis Lazuli)
+        borderColor = '#f59e0b'; // Gold border
         borderWidth = 3;
+        insetBorderColor = '#713f12'; // Dark amber for inset
     }
     
-    // Valid target - green glow
+    // Valid target - add green glow overlay
+    let validGlow = false;
     if (isValidTarget) {
-        backgroundColor = '#dcfce7'; // tile-valid (soft green)
+        validGlow = true;
         borderColor = '#22c55e'; // green-500
         borderWidth = 3;
-    }
-    
-    // Last move destination - highlight
-    if (lastMoveDest) {
-        backgroundColor = '#fef3c7'; // yellow-100
-        borderWidth = 2;
     }
 
     return (
@@ -54,51 +79,57 @@ export const Tile: React.FC<TileProps> = ({ row, col, piece, isValidTarget, onPr
                 backgroundColor,
                 borderWidth,
                 borderColor,
-                borderRadius: 8,
+                borderRadius: 4,
                 alignItems: 'center',
                 justifyContent: 'center',
                 margin: 4,
+                // 3D Inset effect - tiles look set INTO the wood
+                borderBottomWidth: borderWidth + 2,
+                borderRightWidth: borderWidth + 2,
+                borderBottomColor: insetBorderColor,
+                borderRightColor: insetBorderColor,
                 shadowColor: '#000',
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.15,
-                shadowRadius: 3,
-                elevation: 3,
+                shadowOffset: { width: 2, height: 2 },
+                shadowOpacity: 0.3,
+                shadowRadius: 4,
+                elevation: 2,
             }}
         >
-            {/* Rosette Marker - Diamond pattern */}
+            {/* Rosette Pattern - 8-pointed star */}
             {rosette && !piece && (
-                <View style={{ 
-                    position: 'absolute', 
-                    top: 0, 
-                    left: 0, 
-                    right: 0, 
-                    bottom: 0, 
-                    alignItems: 'center', 
-                    justifyContent: 'center', 
-                    opacity: 0.3 
-                }}>
-                    <View style={{ 
-                        width: 24, 
-                        height: 24, 
-                        transform: [{ rotate: '45deg' }], 
-                        borderWidth: 3, 
-                        borderColor: '#f59e0b', // royal-gold
-                        backgroundColor: 'rgba(245, 158, 11, 0.2)'
-                    }} />
-                </View>
+                <RosetteStar color="#f59e0b" />
             )}
 
-            {/* Valid Move Indicator (Pulsing dot) */}
+            {/* War zone Eye/Dots decoration */}
+            {war && !rosette && !piece && (
+                <EyePattern color="#92400e" />
+            )}
+
+            {/* Valid Move Glow Overlay */}
+            {validGlow && (
+                <View style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: '#22c55e',
+                    opacity: 0.2,
+                    borderRadius: 4,
+                }} />
+            )}
+
+            {/* Valid Move Indicator (when no piece) */}
             {isValidTarget && !piece && (
                 <View style={{ 
-                    width: 20, 
-                    height: 20, 
-                    borderRadius: 10, 
-                    backgroundColor: '#22c55e', // green-500
-                    opacity: 0.7,
+                    width: 16, 
+                    height: 16, 
+                    borderRadius: 8, 
+                    backgroundColor: '#22c55e',
+                    opacity: 0.8,
                     shadowColor: '#22c55e',
                     shadowOffset: { width: 0, height: 0 },
-                    shadowOpacity: 0.8,
+                    shadowOpacity: 0.9,
                     shadowRadius: 8,
                     elevation: 5,
                 }} />
