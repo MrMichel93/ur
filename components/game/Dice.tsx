@@ -36,61 +36,68 @@ export const Dice: React.FC<DiceProps> = ({ value, rolling, onRoll, canRoll }) =
             onPress={onRoll}
             disabled={!canRoll || rolling}
             style={{
-                padding: 16,
-                borderRadius: 12,
+                padding: 20,
+                borderRadius: 16,
                 alignItems: 'center',
                 justifyContent: 'center',
-                minHeight: 120,
-                backgroundColor: canRoll ? '#f59e0b' : '#d1d5db', // royal-gold : gray-300
-                opacity: canRoll ? 1 : 0.5,
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: canRoll ? 0.3 : 0,
-                shadowRadius: 5,
-                elevation: canRoll ? 8 : 0,
+                minHeight: 140,
+                backgroundColor: canRoll ? '#f59e0b' : '#6b7280', // royal-gold : gray-500
+                opacity: canRoll ? 1 : 0.6,
+                shadowColor: canRoll ? '#f59e0b' : '#000',
+                shadowOffset: { width: 0, height: 6 },
+                shadowOpacity: canRoll ? 0.4 : 0.2,
+                shadowRadius: 8,
+                elevation: canRoll ? 12 : 4,
+                borderWidth: 2,
+                borderColor: canRoll ? '#d97706' : '#4b5563',
             }}
         >
-            <Animated.View style={[animatedStyle, { flexDirection: 'row', gap: 8 }]}>
+            <Animated.View style={[animatedStyle, { flexDirection: 'row', gap: 10 }]}>
                 {/* Render 4 dice visuals */}
-                {/* Simply show value for now, or 4 pips */}
                 {[0, 1, 2, 3].map(i => {
-                    // Visualize probability? 
-                    // In Ur, 4 dice, each has 50% chance of 1.
-                    // If we have total `value` (e.g. 3), we need to visually show 3 success, 1 fail.
-                    // If rolling, show random?
-                    // Since `value` is the result, we only know it after roll.
-                    // While rolling (value is usually null or old), show '...'.
-
-                    // Deterministic visualization:
-                    // if value=2, Dice 0,1=ON, 2,3=OFF.
                     const isOn = value !== null && i < value;
 
                     return (
                         <View key={i} style={{
-                            width: 32,
-                            height: 32,
+                            width: 36,
+                            height: 36,
                             transform: [{ rotate: '45deg' }],
-                            borderWidth: 1,
+                            borderWidth: 2,
                             borderColor: '#1e3a8a', // royal-blue
                             alignItems: 'center',
                             justifyContent: 'center',
-                            backgroundColor: isOn ? '#1e3a8a' : '#ffffff', // royal-blue : white
+                            backgroundColor: isOn ? '#1e40af' : '#ffffff', // player-light : white
+                            shadowColor: isOn ? '#1e40af' : 'transparent',
+                            shadowOffset: { width: 0, height: 0 },
+                            shadowOpacity: 0.6,
+                            shadowRadius: 6,
+                            elevation: isOn ? 4 : 0,
                         }}>
-                            {/* Pyramid tip */}
-                            {isOn && <View style={{ width: 8, height: 8, backgroundColor: '#ffffff', borderRadius: 4 }} />}
+                            {/* Pyramid tip indicator */}
+                            {isOn && <View style={{ 
+                                width: 10, 
+                                height: 10, 
+                                backgroundColor: '#fbbf24', 
+                                borderRadius: 5,
+                                shadowColor: '#fbbf24',
+                                shadowOffset: { width: 0, height: 0 },
+                                shadowOpacity: 0.8,
+                                shadowRadius: 4,
+                            }} />}
                         </View>
                     );
                 })}
             </Animated.View>
             <Text style={{
-                marginTop: 8,
+                marginTop: 12,
                 fontWeight: 'bold',
                 color: '#ffffff',
                 textAlign: 'center',
                 textTransform: 'uppercase',
-                fontSize: 12,
+                fontSize: 14,
+                letterSpacing: 1.2,
             }}>
-                {rolling ? 'Rolling...' : value !== null ? `Rolled: ${value}` : 'Tap to Roll'}
+                {rolling ? 'Rolling...' : value !== null ? `Rolled: ${value}` : 'Tap to Roll Dice'}
             </Text>
         </TouchableOpacity>
     );

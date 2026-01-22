@@ -18,18 +18,30 @@ export const Tile: React.FC<TileProps> = ({ row, col, piece, isValidTarget, onPr
     const rosette = isRosette(row, col);
     const war = isWarZone(row, col);
 
-    // Styling
-    // Normal: Stone Light
-    // Rosette: Special pattern (border or icon)
-    // War: Maybe slight red tint or just stone
-    // Valid Target: Green glow or border
-
-    let bgClass = "bg-stone-200";
-    if (rosette) bgClass = "bg-stone-300 border-2 border-royal-gold";
-    if (war && !rosette) bgClass = "bg-stone-200"; // War zone same color usually or checkered
-
-    if (isValidTarget) bgClass += " bg-green-100 border-2 border-green-500";
-    if (lastMoveDest) bgClass += " bg-yellow-100";
+    // Base tile color - warm sandy tone
+    let backgroundColor = '#fde68a'; // tile-normal (golden sand)
+    let borderColor = '#d97706'; // tile-border (deep amber)
+    let borderWidth = 1;
+    
+    // Rosette tiles - distinct lapis blue with gold border
+    if (rosette) {
+        backgroundColor = '#3b82f6'; // Lapis blue
+        borderColor = '#f59e0b'; // royal-gold
+        borderWidth = 3;
+    }
+    
+    // Valid target - green glow
+    if (isValidTarget) {
+        backgroundColor = '#dcfce7'; // tile-valid (soft green)
+        borderColor = '#22c55e'; // green-500
+        borderWidth = 3;
+    }
+    
+    // Last move destination - highlight
+    if (lastMoveDest) {
+        backgroundColor = '#fef3c7'; // yellow-100
+        borderWidth = 2;
+    }
 
     return (
         <TouchableOpacity
@@ -39,43 +51,63 @@ export const Tile: React.FC<TileProps> = ({ row, col, piece, isValidTarget, onPr
                 width: '100%',
                 height: '100%',
                 aspectRatio: 1,
-                backgroundColor: rosette ? '#d6d3d1' : '#e7e5e4', // stone-300 : stone-200
-                borderWidth: rosette ? 2 : 0,
-                borderColor: rosette ? '#f59e0b' : 'transparent', // royal-gold
-                borderRadius: 6,
+                backgroundColor,
+                borderWidth,
+                borderColor,
+                borderRadius: 8,
                 alignItems: 'center',
                 justifyContent: 'center',
                 margin: 4,
-                ...(isValidTarget && {
-                    backgroundColor: '#dcfce7', // green-100
-                    borderWidth: 2,
-                    borderColor: '#22c55e', // green-500
-                }),
-                ...(lastMoveDest && {
-                    backgroundColor: '#fef3c7', // yellow-100
-                }),
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.15,
+                shadowRadius: 3,
+                elevation: 3,
             }}
         >
-            {/* Rosette Marker */}
+            {/* Rosette Marker - Diamond pattern */}
             {rosette && !piece && (
-                <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', opacity: 0.2 }}>
-                    <View style={{ width: 32, height: 32, transform: [{ rotate: '45deg' }], borderWidth: 4, borderColor: '#f59e0b' }} />
+                <View style={{ 
+                    position: 'absolute', 
+                    top: 0, 
+                    left: 0, 
+                    right: 0, 
+                    bottom: 0, 
+                    alignItems: 'center', 
+                    justifyContent: 'center', 
+                    opacity: 0.3 
+                }}>
+                    <View style={{ 
+                        width: 24, 
+                        height: 24, 
+                        transform: [{ rotate: '45deg' }], 
+                        borderWidth: 3, 
+                        borderColor: '#f59e0b', // royal-gold
+                        backgroundColor: 'rgba(245, 158, 11, 0.2)'
+                    }} />
                 </View>
             )}
 
-            {/* Coordinates (Debug) */}
-            {/* <Text style={{ fontSize: 8, position: 'absolute', top: 4, left: 4, color: '#9ca3af' }}>{row},{col}</Text> */}
-
-            {/* Valid Move Indicator (Dot) */}
+            {/* Valid Move Indicator (Pulsing dot) */}
             {isValidTarget && !piece && (
-                <View style={{ width: 16, height: 16, borderRadius: 8, backgroundColor: '#4ade80', opacity: 0.5 }} />
+                <View style={{ 
+                    width: 20, 
+                    height: 20, 
+                    borderRadius: 10, 
+                    backgroundColor: '#22c55e', // green-500
+                    opacity: 0.7,
+                    shadowColor: '#22c55e',
+                    shadowOffset: { width: 0, height: 0 },
+                    shadowOpacity: 0.8,
+                    shadowRadius: 8,
+                    elevation: 5,
+                }} />
             )}
 
             {/* Piece */}
             {piece && (
-                <View style={{ opacity: isValidTarget ? 0.5 : 1 }}>
-                    {/* If valid target has piece (capture), maybe show transparent red? */}
-                    <Piece color={piece.color} />
+                <View style={{ opacity: 1 }}>
+                    <Piece color={piece.color} highlight={isValidTarget} />
                 </View>
             )}
         </TouchableOpacity>
