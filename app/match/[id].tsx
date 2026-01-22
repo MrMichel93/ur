@@ -41,7 +41,7 @@ export default function GameRoom() {
     };
 
     return (
-        <View className="flex-1" style={{ backgroundColor: '#2d1810' }}>
+        <View style={{ flex: 1, backgroundColor: '#2d1810' }}>
             <Stack.Screen options={{ title: `Game #${id}` }} />
 
             <ScrollView contentContainerStyle={{ padding: 16, alignItems: 'center' }}>

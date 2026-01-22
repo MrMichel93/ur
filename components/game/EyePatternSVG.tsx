@@ -6,7 +6,7 @@ interface EyePatternSVGProps {
     color?: string;
 }
 
-// Eye pattern with 4 or 5 dots from the Royal Game of Ur
+// Eye pattern with 5 dots from the Royal Game of Ur
 export const EyePatternSVG: React.FC<EyePatternSVGProps> = ({ size = 32, color = '#7f1d1d' }) => {
     return (
         <Svg width={size} height={size} viewBox="0 0 100 100">
