@@ -42,12 +42,14 @@ export default function GameRoom() {
     };
 
     return (
-        <LinearGradient
-            colors={['#0a0e1a', '#1a1f35', '#2d1b4e']}
-            style={styles.container}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-        >
+        <View style={styles.container}>
+            <LinearGradient
+                colors={['#0a0e1a', '#1a1f35', '#2d1b4e']}
+                style={styles.backgroundGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+            />
+            
             <Stack.Screen options={{ title: `Celestial Battle #${id}` }} />
 
             <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -159,13 +161,20 @@ export default function GameRoom() {
                 actionLabel="Return to the Cosmos"
                 onAction={handleExit}
             />
-        </LinearGradient>
+        </View>
     );
 }
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
+    },
+    backgroundGradient: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
     },
     scrollContent: {
         padding: 16,
