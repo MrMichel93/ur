@@ -30,31 +30,38 @@ export const Dice: React.FC<DiceProps> = ({
   showNumericResult = true,
 }) => {
   const lift = useSharedValue(0);
-  const wobble = useSharedValue(0);
+  const spin = useSharedValue(0);
+  const tilt = useSharedValue(0);
   const readiness = useSharedValue(canRoll ? 0.4 : 0);
   const resultPulse = useSharedValue(0);
 
   useEffect(() => {
     if (rolling) {
       lift.value = withSequence(
-        withTiming(-14, { duration: 90 }),
-        withTiming(10, { duration: 110 }),
-        withTiming(-8, { duration: 110 }),
+        withTiming(-18, { duration: 110, easing: Easing.out(Easing.cubic) }),
+        withTiming(9, { duration: 120, easing: Easing.inOut(Easing.quad) }),
+        withTiming(-7, { duration: 100, easing: Easing.inOut(Easing.quad) }),
         withSpring(0, urTheme.motion.spring.settle),
       );
-      wobble.value = withSequence(
-        withTiming(1, { duration: 380, easing: Easing.linear }),
+
+      tilt.value = withSequence(
+        withTiming(1, { duration: 280, easing: Easing.linear }),
+        withTiming(0, { duration: 190, easing: Easing.out(Easing.cubic) }),
+      );
+
+      spin.value = withSequence(
+        withTiming(1, { duration: 470, easing: Easing.linear }),
         withTiming(0, { duration: 0 }),
       );
     }
-  }, [lift, rolling, wobble]);
+  }, [lift, rolling, spin, tilt]);
 
   useEffect(() => {
     if (canRoll && !rolling) {
       readiness.value = withRepeat(
         withSequence(
-          withTiming(0.8, { duration: 850, easing: Easing.inOut(Easing.quad) }),
-          withTiming(0.2, { duration: 850, easing: Easing.inOut(Easing.quad) }),
+          withTiming(0.82, { duration: 850, easing: Easing.inOut(Easing.quad) }),
+          withTiming(0.22, { duration: 850, easing: Easing.inOut(Easing.quad) }),
         ),
         -1,
         true,
@@ -70,22 +77,30 @@ export const Dice: React.FC<DiceProps> = ({
     if (value === null || rolling) return;
 
     resultPulse.value = withSequence(
-      withTiming(1, { duration: 160, easing: Easing.out(Easing.cubic) }),
-      withTiming(0, { duration: 300, easing: Easing.inOut(Easing.quad) }),
+      withTiming(1, { duration: 170, easing: Easing.out(Easing.cubic) }),
+      withTiming(0, { duration: 320, easing: Easing.inOut(Easing.quad) }),
     );
   }, [resultPulse, rolling, value]);
 
   const diceRowStyle = useAnimatedStyle(() => ({
     transform: [
       { translateY: lift.value },
-      { rotate: `${wobble.value * 22}deg` },
-      { scale: 1 + wobble.value * 0.11 + resultPulse.value * 0.07 },
+      { perspective: 850 },
+      { rotateX: `${tilt.value * 22}deg` },
+      { rotateY: `${spin.value * 60 - 30}deg` },
+      { rotateZ: `${spin.value * 36 - 18}deg` },
+      { scale: 1 + resultPulse.value * 0.08 },
     ],
   }));
 
   const readinessStyle = useAnimatedStyle(() => ({
     opacity: readiness.value,
     transform: [{ scale: 0.98 + readiness.value * 0.06 }],
+  }));
+
+  const groundShadowStyle = useAnimatedStyle(() => ({
+    opacity: 0.22 + (1 - Math.min(Math.abs(lift.value) / 18, 1)) * 0.35,
+    transform: [{ scaleX: 0.92 + Math.min(Math.abs(lift.value) / 18, 1) * 0.16 }],
   }));
 
   const title = rolling ? 'Casting...' : value !== null ? `Result: ${value}` : 'Cast The Dice';
@@ -111,12 +126,18 @@ export const Dice: React.FC<DiceProps> = ({
         <View style={styles.cardBorder} />
         <Animated.View style={[styles.readyHalo, readinessStyle]} />
 
+        <Animated.View style={[styles.groundShadow, groundShadowStyle]} />
+
         <Animated.View style={[styles.diceRow, diceRowStyle]}>
           {[0, 1, 2, 3].map((index) => {
             const isOn = value !== null && index < value;
+
             return (
-              <View key={index} style={[styles.die, isOn ? styles.dieOn : styles.dieOff]}>
-                <View style={[styles.dieFacet, isOn ? styles.dieFacetOn : styles.dieFacetOff]} />
+              <View key={index} style={[styles.die3dWrap, isOn ? styles.die3dWrapOn : styles.die3dWrapOff]}>
+                <View style={[styles.dieTopFace, isOn ? styles.dieTopFaceOn : styles.dieTopFaceOff]} />
+                <View style={[styles.dieFrontFace, isOn ? styles.dieFrontFaceOn : styles.dieFrontFaceOff]} />
+                <View style={[styles.dieSideFace, isOn ? styles.dieSideFaceOn : styles.dieSideFaceOff]} />
+                <View style={[styles.dieSpecular, isOn ? styles.dieSpecularOn : styles.dieSpecularOff]} />
                 {isOn && <View style={styles.diePip} />}
               </View>
             );
@@ -152,7 +173,7 @@ const styles = StyleSheet.create({
     minHeight: 144,
   },
   stageCard: {
-    minHeight: 120,
+    minHeight: 124,
     borderRadius: urTheme.radii.pill,
   },
   cardActive: {
@@ -174,7 +195,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: '44%',
-    backgroundColor: 'rgba(255, 224, 168, 0.13)',
+    backgroundColor: 'rgba(255, 224, 168, 0.14)',
   },
   cardBorder: {
     ...StyleSheet.absoluteFillObject,
@@ -193,56 +214,107 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: 'rgba(111, 184, 255, 0.8)',
   },
+  groundShadow: {
+    position: 'absolute',
+    width: 136,
+    height: 24,
+    borderRadius: urTheme.radii.pill,
+    backgroundColor: 'rgba(5, 10, 17, 0.4)',
+    top: 58,
+  },
   diceRow: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 12,
     marginBottom: urTheme.spacing.sm,
+    marginTop: 2,
   },
-  die: {
-    width: 32,
-    height: 32,
-    transform: [{ rotate: '45deg' }],
+  die3dWrap: {
+    width: 28,
+    height: 28,
     borderRadius: urTheme.radii.xs,
-    borderWidth: 1.2,
+    position: 'relative',
     alignItems: 'center',
     justifyContent: 'center',
-    overflow: 'hidden',
+    borderWidth: 1,
   },
-  dieOn: {
-    backgroundColor: '#1D518D',
-    borderColor: 'rgba(218, 182, 105, 0.9)',
-    shadowColor: '#1D518D',
-    shadowOpacity: 0.4,
-    shadowRadius: 3,
-    elevation: 4,
+  die3dWrapOn: {
+    backgroundColor: '#2A6BBC',
+    borderColor: 'rgba(235, 204, 137, 0.94)',
+    shadowColor: '#2A6BBC',
+    shadowOpacity: 0.45,
+    shadowRadius: 4,
+    elevation: 5,
   },
-  dieOff: {
-    backgroundColor: '#DBC6A6',
-    borderColor: 'rgba(87, 59, 36, 0.55)',
+  die3dWrapOff: {
+    backgroundColor: '#C9B08A',
+    borderColor: 'rgba(99, 71, 44, 0.56)',
   },
-  dieFacet: {
+  dieTopFace: {
     position: 'absolute',
-    width: 21,
-    height: 21,
-    borderRadius: urTheme.radii.xs - 2,
-    transform: [{ rotate: '-45deg' }],
-    top: 2,
+    top: 0,
+    left: 0,
+    right: 0,
+    height: '56%',
+    borderTopLeftRadius: urTheme.radii.xs - 1,
+    borderTopRightRadius: urTheme.radii.xs - 1,
+  },
+  dieTopFaceOn: {
+    backgroundColor: 'rgba(153, 201, 255, 0.44)',
+  },
+  dieTopFaceOff: {
+    backgroundColor: 'rgba(255, 242, 209, 0.3)',
+  },
+  dieFrontFace: {
+    position: 'absolute',
     left: 2,
+    right: 2,
+    bottom: 1,
+    height: '34%',
+    borderBottomLeftRadius: urTheme.radii.xs - 2,
+    borderBottomRightRadius: urTheme.radii.xs - 2,
   },
-  dieFacetOn: {
-    backgroundColor: 'rgba(129, 182, 252, 0.34)',
+  dieFrontFaceOn: {
+    backgroundColor: 'rgba(15, 35, 58, 0.36)',
   },
-  dieFacetOff: {
-    backgroundColor: 'rgba(255, 240, 204, 0.3)',
+  dieFrontFaceOff: {
+    backgroundColor: 'rgba(68, 43, 22, 0.15)',
+  },
+  dieSideFace: {
+    position: 'absolute',
+    top: 2,
+    bottom: 3,
+    right: 1,
+    width: 6,
+    borderTopRightRadius: urTheme.radii.xs - 2,
+    borderBottomRightRadius: urTheme.radii.xs - 2,
+  },
+  dieSideFaceOn: {
+    backgroundColor: 'rgba(11, 28, 46, 0.3)',
+  },
+  dieSideFaceOff: {
+    backgroundColor: 'rgba(75, 46, 28, 0.12)',
+  },
+  dieSpecular: {
+    position: 'absolute',
+    top: 4,
+    left: 5,
+    width: 10,
+    height: 4,
+    borderRadius: urTheme.radii.pill,
+  },
+  dieSpecularOn: {
+    backgroundColor: 'rgba(233, 247, 255, 0.62)',
+  },
+  dieSpecularOff: {
+    backgroundColor: 'rgba(255, 243, 221, 0.34)',
   },
   diePip: {
-    width: 9,
-    height: 9,
+    width: 8,
+    height: 8,
     borderRadius: urTheme.radii.pill,
     backgroundColor: urTheme.colors.ivory,
-    borderWidth: 0.7,
-    borderColor: 'rgba(29, 20, 12, 0.5)',
-    transform: [{ rotate: '-45deg' }],
+    borderWidth: 0.8,
+    borderColor: 'rgba(21, 13, 7, 0.54)',
   },
   title: {
     color: '#F6E6CC',

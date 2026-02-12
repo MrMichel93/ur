@@ -19,6 +19,8 @@ interface TileProps {
   col: number;
   piece?: { id: string; color: PlayerColor };
   isValidTarget?: boolean;
+  isSelectedPiece?: boolean;
+  isInteractive?: boolean;
   onPress?: () => void;
   highlightMode?: 'subtle' | 'theatrical';
 }
@@ -28,12 +30,15 @@ export const Tile: React.FC<TileProps> = ({
   col,
   piece,
   isValidTarget = false,
+  isSelectedPiece = false,
+  isInteractive = false,
   onPress,
   highlightMode = 'theatrical',
 }) => {
   const rosette = isRosette(row, col);
   const war = isWarZone(row, col);
   const pulse = useSharedValue(isValidTarget ? 1 : 0);
+  const selectedPulse = useSharedValue(isSelectedPiece ? 1 : 0);
   const rosetteGlow = useSharedValue(rosette ? 0.2 : 0);
   const rosetteBurst = useSharedValue(0);
   const prevPieceId = useRef<string | null>(piece?.id ?? null);
@@ -63,6 +68,23 @@ export const Tile: React.FC<TileProps> = ({
     cancelAnimation(pulse);
     pulse.value = withTiming(0, { duration: 180 });
   }, [highlightMode, isValidTarget, pulse]);
+
+  useEffect(() => {
+    if (isSelectedPiece) {
+      selectedPulse.value = withRepeat(
+        withSequence(
+          withTiming(0.95, { duration: 520, easing: Easing.inOut(Easing.quad) }),
+          withTiming(0.25, { duration: 520, easing: Easing.inOut(Easing.quad) }),
+        ),
+        -1,
+        true,
+      );
+      return;
+    }
+
+    cancelAnimation(selectedPulse);
+    selectedPulse.value = withTiming(0, { duration: 180 });
+  }, [isSelectedPiece, selectedPulse]);
 
   useEffect(() => {
     if (rosette) {
@@ -101,6 +123,11 @@ export const Tile: React.FC<TileProps> = ({
     opacity: rosetteGlow.value,
   }));
 
+  const selectedPulseStyle = useAnimatedStyle(() => ({
+    opacity: selectedPulse.value,
+    transform: [{ scale: 0.93 + selectedPulse.value * 0.13 }],
+  }));
+
   const rosetteBurstStyle = useAnimatedStyle(() => ({
     opacity: rosetteBurst.value * 0.8,
     transform: [{ scale: 0.82 + rosetteBurst.value * 0.7 }],
@@ -116,7 +143,7 @@ export const Tile: React.FC<TileProps> = ({
   return (
     <TouchableOpacity
       onPress={onPress}
-      disabled={!isValidTarget}
+      disabled={!isInteractive}
       activeOpacity={0.86}
       style={[
         styles.tile,
@@ -126,6 +153,7 @@ export const Tile: React.FC<TileProps> = ({
           borderWidth: rosette ? 1.8 : 1.1,
         },
         isValidTarget && styles.validTile,
+        isSelectedPiece && styles.selectedTile,
       ]}
     >
       <Image source={urTextures.wood} resizeMode="repeat" style={styles.tileTexture} />
@@ -135,6 +163,7 @@ export const Tile: React.FC<TileProps> = ({
       <View style={styles.edgeHighlight} />
       <View style={styles.lowerShade} />
 
+      {isSelectedPiece && <Animated.View style={[styles.selectedRing, selectedPulseStyle]} />}
       {isValidTarget && <Animated.View style={[styles.validRing, pulseStyle]} />}
       {rosette && <Animated.View style={[styles.rosetteGlow, rosetteGlowStyle]} />}
       {rosette && <Animated.View style={[styles.rosetteBurst, rosetteBurstStyle]} />}
@@ -176,6 +205,13 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.34,
     shadowRadius: 7,
     elevation: 5,
+  },
+  selectedTile: {
+    borderColor: 'rgba(111, 184, 255, 0.8)',
+    shadowColor: urTheme.colors.glow,
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 7,
   },
   tileTexture: {
     ...StyleSheet.absoluteFillObject,
@@ -219,6 +255,15 @@ const styles = StyleSheet.create({
     borderRadius: urTheme.radii.pill,
     borderWidth: 2.2,
     borderColor: 'rgba(238, 192, 98, 0.95)',
+  },
+  selectedRing: {
+    position: 'absolute',
+    width: '88%',
+    height: '88%',
+    borderRadius: urTheme.radii.pill,
+    borderWidth: 1.7,
+    borderColor: 'rgba(111, 184, 255, 0.95)',
+    backgroundColor: 'rgba(111, 184, 255, 0.14)',
   },
   rosetteGlow: {
     position: 'absolute',

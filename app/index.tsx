@@ -28,7 +28,7 @@ export default function Home() {
 
         <View style={styles.buttonStack}>
           <Button title="Play Local vs Bot" onPress={() => router.push('/(game)/lobby')} />
-          <Button title="Online Multiplayer (Soon)" variant="outline" disabled />
+          <Button title="Online Multiplayer" variant="outline" onPress={() => router.push('/(game)/lobby')} />
         </View>
       </View>
     </View>

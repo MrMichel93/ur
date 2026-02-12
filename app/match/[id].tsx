@@ -5,39 +5,59 @@ import { GameStageHUD } from '@/components/game/GameStageHUD';
 import { PieceRail } from '@/components/game/PieceRail';
 import { Modal } from '@/components/ui/Modal';
 import { urTheme, urTextures, urTypography } from '@/constants/urTheme';
-import { hasNakamaConfig } from '@/config/nakama';
+import { hasNakamaConfig, isNakamaEnabled } from '@/config/nakama';
 import { useGameLoop } from '@/hooks/useGameLoop';
+import { PlayerColor } from '@/logic/types';
+import { gameAudio } from '@/services/audio';
 import { nakamaService } from '@/services/nakama';
 import { useGameStore } from '@/store/useGameStore';
+import {
+  MatchOpCode,
+  MoveRequestPayload,
+  RollRequestPayload,
+  decodePayload,
+  encodePayload,
+  isServerErrorPayload,
+  isStateSnapshotPayload,
+} from '@/shared/urMatchProtocol';
 import { MatchData, MatchPresenceEvent, Socket } from '@heroiclabs/nakama-js';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useRef } from 'react';
 import { Image, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 
-const OP_MOVE = 1;
-
 export default function GameRoom() {
-  const { id } = useLocalSearchParams();
+  const { id, offline } = useLocalSearchParams<{ id?: string | string[]; offline?: string | string[] }>();
   const router = useRouter();
   const { width } = useWindowDimensions();
 
   const matchId = useMemo(() => (Array.isArray(id) ? id[0] : id), [id]);
+  const offlineParam = useMemo(() => (Array.isArray(offline) ? offline[0] : offline), [offline]);
   const isOffline = useMemo(
-    () => !hasNakamaConfig() || String(matchId ?? '').startsWith('local-'),
-    [matchId],
+    () =>
+      offlineParam === '1' ||
+      !isNakamaEnabled() ||
+      !hasNakamaConfig() ||
+      String(matchId ?? '').startsWith('local-'),
+    [matchId, offlineParam],
   );
 
   const gameState = useGameStore((state) => state.gameState);
   const roll = useGameStore((state) => state.roll);
   const reset = useGameStore((state) => state.reset);
+  const userId = useGameStore((state) => state.userId);
+  const playerColor = useGameStore((state) => state.playerColor);
   const initGame = useGameStore((state) => state.initGame);
   const setMatchId = useGameStore((state) => state.setMatchId);
-  const setGameStateFromServer = useGameStore((state) => state.setGameStateFromServer);
+  const applyServerSnapshot = useGameStore((state) => state.applyServerSnapshot);
+  const setPlayerColor = useGameStore((state) => state.setPlayerColor);
+  const setOnlineMode = useGameStore((state) => state.setOnlineMode);
   const updateMatchPresences = useGameStore((state) => state.updateMatchPresences);
   const setSocketState = useGameStore((state) => state.setSocketState);
-  const setMatchMoveSender = useGameStore((state) => state.setMatchMoveSender);
+  const setRollCommandSender = useGameStore((state) => state.setRollCommandSender);
+  const setMoveCommandSender = useGameStore((state) => state.setMoveCommandSender);
 
-  const isMyTurn = gameState.currentTurn === 'light';
+  const effectivePlayerColor: PlayerColor = playerColor ?? 'light';
+  const isMyTurn = gameState.currentTurn === effectivePlayerColor;
   const canRoll = isMyTurn && gameState.phase === 'rolling';
 
   const [showWinModal, setShowWinModal] = React.useState(false);
@@ -64,25 +84,15 @@ export default function GameRoom() {
   useEffect(() => {
     if (!matchId) return;
     if (isOffline) {
+      setOnlineMode('offline');
+      setPlayerColor('light');
       setSocketState('connected');
       return;
     }
 
-    let isMounted = true;
+    setOnlineMode('nakama');
 
-    const withTimeout = async <T,>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> => {
-      let timeoutId: ReturnType<typeof setTimeout> | null = null;
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        timeoutId = setTimeout(() => reject(new Error(message)), timeoutMs);
-      });
-      try {
-        return await Promise.race([promise, timeoutPromise]);
-      } finally {
-        if (timeoutId) {
-          clearTimeout(timeoutId);
-        }
-      }
-    };
+    let isMounted = true;
 
     const handleMatchData = (matchData: MatchData) => {
       if (matchData.match_id !== matchId) return;
@@ -93,17 +103,29 @@ export default function GameRoom() {
       } else if (typeof TextDecoder !== 'undefined') {
         rawData = new TextDecoder().decode(matchData.data);
       } else {
+        rawData = String.fromCharCode(...Array.from(matchData.data));
+      }
+
+      const payload = decodePayload(rawData);
+
+      if (matchData.op_code === MatchOpCode.STATE_SNAPSHOT) {
+        if (!isStateSnapshotPayload(payload)) {
+          return;
+        }
+        applyServerSnapshot(payload.gameState, payload.revision, payload.matchId);
+        if (userId) {
+          const assignedColor = payload.assignments[userId] as PlayerColor | undefined;
+          if (assignedColor) {
+            setPlayerColor(assignedColor);
+          }
+        }
         return;
       }
 
-      try {
-        const payload = JSON.parse(rawData);
-        const nextState = payload?.state ?? payload?.gameState ?? payload;
-        if (nextState?.currentTurn) {
-          setGameStateFromServer(nextState);
+      if (matchData.op_code === MatchOpCode.SERVER_ERROR) {
+        if (isServerErrorPayload(payload)) {
+          console.warn(`[ServerError:${payload.code}] ${payload.message}`);
         }
-      } catch {
-        // Ignore malformed payloads.
       }
     };
 
@@ -117,44 +139,31 @@ export default function GameRoom() {
       socket.onmatchdata = handleMatchData;
       socket.onmatchpresence = handleMatchPresence;
       socket.ondisconnect = () => {
+        nakamaService.disconnectSocket(false);
         setSocketState('disconnected');
         if (reconnectTimerRef.current) {
           return;
         }
         reconnectTimerRef.current = setTimeout(() => {
           reconnectTimerRef.current = null;
-          void connectAndJoin(true);
+          void connectAndJoin();
         }, 1500);
       };
     };
 
-    const connectAndJoin = async (isReconnect = false) => {
+    const connectAndJoin = async () => {
       try {
         setSocketState('connecting');
-        const socket =
-          nakamaService.getSocket() ??
-          (await withTimeout(
-            nakamaService.connectSocket(),
-            10_000,
-            'Connecting to the match server timed out.',
-          ));
+        const socket = await nakamaService.connectSocketWithRetry({
+          attempts: 3,
+          retryDelayMs: 1_000,
+          createStatus: true,
+        });
         attachSocketHandlers(socket);
-        const match = await withTimeout(socket.joinMatch(matchId), 10_000, 'Joining the match timed out.');
+        const match = await socket.joinMatch(matchId);
         if (!isMounted) return;
         setMatchId(match.match_id);
         setSocketState('connected');
-        const reconnectMetadata = (match as { metadata?: string }).metadata;
-        if (isReconnect && reconnectMetadata) {
-          try {
-            const metadata = JSON.parse(reconnectMetadata);
-            const state = metadata?.state ?? metadata;
-            if (state?.currentTurn) {
-              setGameStateFromServer(state);
-            }
-          } catch {
-            // ignore metadata parse errors
-          }
-        }
       } catch (error) {
         console.error(error);
         setSocketState('error');
@@ -169,33 +178,57 @@ export default function GameRoom() {
         clearTimeout(reconnectTimerRef.current);
         reconnectTimerRef.current = null;
       }
+      if (!isOffline && socketRef.current && matchId) {
+        void socketRef.current.leaveMatch(matchId).catch(() => {});
+      }
       if (socketRef.current) {
         socketRef.current.onmatchdata = () => {};
         socketRef.current.onmatchpresence = () => {};
+        socketRef.current.ondisconnect = () => {};
       }
     };
-  }, [isOffline, matchId, setGameStateFromServer, setMatchId, setSocketState, updateMatchPresences]);
+  }, [
+    applyServerSnapshot,
+    isOffline,
+    matchId,
+    setMatchId,
+    setOnlineMode,
+    setPlayerColor,
+    setSocketState,
+    updateMatchPresences,
+    userId,
+  ]);
 
   useEffect(() => {
     if (!matchId) return;
     if (isOffline) {
-      setMatchMoveSender(null);
+      setRollCommandSender(null);
+      setMoveCommandSender(null);
       return;
     }
+
+    const sendRoll = async () => {
+      const socket = socketRef.current;
+      if (!socket) return;
+      const payload: RollRequestPayload = { type: 'roll_request' };
+      await socket.sendMatchState(matchId, MatchOpCode.ROLL_REQUEST, encodePayload(payload));
+    };
 
     const sendMove = async (move: { pieceId: string; fromIndex: number; toIndex: number }) => {
       const socket = socketRef.current;
       if (!socket) return;
-      const payload = JSON.stringify({ op: 'move', move });
-      await socket.sendMatchState(matchId, OP_MOVE, payload);
+      const payload: MoveRequestPayload = { type: 'move_request', move };
+      await socket.sendMatchState(matchId, MatchOpCode.MOVE_REQUEST, encodePayload(payload));
     };
 
-    setMatchMoveSender(() => sendMove);
+    setRollCommandSender(sendRoll);
+    setMoveCommandSender(sendMove);
 
     return () => {
-      setMatchMoveSender(null);
+      setRollCommandSender(null);
+      setMoveCommandSender(null);
     };
-  }, [isOffline, matchId, setMatchMoveSender]);
+  }, [isOffline, matchId, setMoveCommandSender, setRollCommandSender]);
 
   useEffect(() => {
     return () => {
@@ -204,6 +237,48 @@ export default function GameRoom() {
       }
     };
   }, []);
+
+  useEffect(() => {
+    void gameAudio.start();
+
+    return () => {
+      void gameAudio.stopAll();
+    };
+  }, []);
+
+  const previousStateRef = useRef(gameState);
+
+  useEffect(() => {
+    const previous = previousStateRef.current;
+
+    if (previous.rollValue !== gameState.rollValue && gameState.rollValue !== null) {
+      void gameAudio.play('roll');
+    }
+
+    if (gameState.history.length > previous.history.length) {
+      const newEntries = gameState.history.slice(previous.history.length);
+      for (const entry of newEntries) {
+        if (entry.includes('captured')) {
+          void gameAudio.play('capture');
+        } else if (entry.includes('moved to')) {
+          void gameAudio.play('move');
+        }
+      }
+    }
+
+    if (
+      gameState.light.finishedCount > previous.light.finishedCount ||
+      gameState.dark.finishedCount > previous.dark.finishedCount
+    ) {
+      void gameAudio.play('score');
+    }
+
+    if (!previous.winner && gameState.winner) {
+      void gameAudio.play('win');
+    }
+
+    previousStateRef.current = gameState;
+  }, [gameState]);
 
   const handleRoll = () => {
     if (!canRoll || rollingVisual) return;
@@ -220,119 +295,84 @@ export default function GameRoom() {
   };
 
   const handleExit = () => {
+    if (!isOffline && socketRef.current && matchId) {
+      void socketRef.current.leaveMatch(matchId).catch(() => {});
+      nakamaService.disconnectSocket(true);
+    }
     setShowWinModal(false);
     reset();
     router.replace('/');
   };
 
-  const recentHistory = gameState.history.slice(-4).reverse();
+  const recentHistory = gameState.history.slice(-5).reverse();
   const lightReserve = gameState.light.pieces.filter((piece) => !piece.isFinished && piece.position === -1).length;
   const darkReserve = gameState.dark.pieces.filter((piece) => !piece.isFinished && piece.position === -1).length;
 
-  const isWide = width >= 980;
-  const isNarrow = width < 720;
+  const isCompact = width < 720;
 
   return (
     <View style={styles.screen}>
       <Stack.Screen options={{ title: `Game #${id}` }} />
-      <Image source={urTextures.woodDark} resizeMode="repeat" style={styles.pageTexture} />
-      <View style={styles.pageGlowTop} />
-      <View style={styles.pageGlowMiddle} />
-      <View style={styles.pageShadeBottom} />
-      <View style={styles.vignetteTop} />
-      <View style={styles.vignetteBottom} />
+
+      <Image source={urTextures.woodDark} resizeMode="repeat" style={styles.tableGrainPrimary} />
+      <Image source={urTextures.wood} resizeMode="repeat" style={styles.tableGrainSecondary} />
+      <View style={styles.tableTopLight} />
+      <View style={styles.tableBottomShade} />
+      <View style={styles.tableVignetteOuter} />
+      <View style={styles.tableVignetteInner} />
+      <View style={styles.tableSoftSpot} />
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <View style={[styles.stageWrap, isWide && styles.stageWrapWide]}>
-          {!isWide && (
-            <View style={styles.mobileTopRail}>
-              <PieceRail
-                label="Dark Pieces"
-                color="dark"
-                tokenVariant="light"
-                reserveCount={darkReserve}
-                active={!isMyTurn}
-              />
-            </View>
-          )}
-
-          <View style={[styles.stageColumns, isWide && styles.stageColumnsWide]}>
-            {isWide && (
-              <View style={styles.sideRailCol}>
-                <PieceRail
-                  label="Dark Pieces"
-                  color="dark"
-                  tokenVariant="light"
-                  reserveCount={darkReserve}
-                  active={!isMyTurn}
-                />
-                <EdgeScore label="Dark Score" value={`${gameState.dark.finishedCount}/7`} active={!isMyTurn} />
-              </View>
-            )}
-
-            <View style={styles.boardCol}>
-              {!isWide && (
-                <View style={styles.mobileScoreRow}>
-                  <EdgeScore label="Dark" value={`${gameState.dark.finishedCount}/7`} active={!isMyTurn} />
-                  <EdgeScore label="Light" value={`${gameState.light.finishedCount}/7`} active={isMyTurn} align="right" />
-                </View>
-              )}
-
-              <GameStageHUD isMyTurn={isMyTurn} canRoll={canRoll} phase={gameState.phase} />
-
-              <View style={styles.boardCard}>
-                <Board showRailHints={isWide} highlightMode="theatrical" boardScale={isNarrow ? 0.96 : 1} />
-              </View>
-
-              {recentHistory.length > 0 && (
-                <View style={styles.historyStrip}>
-                  <Text style={styles.historyTitle}>Recent</Text>
-                  {recentHistory.map((entry, index) => (
-                    <Text key={`${entry}-${index}`} style={styles.historyEntry}>
-                      {entry}
-                    </Text>
-                  ))}
-                </View>
-              )}
-            </View>
-
-            {isWide && (
-              <View style={styles.sideRailCol}>
-                <PieceRail
-                  label="Easy Bot Pieces"
-                  color="light"
-                  tokenVariant="reserve"
-                  reserveCount={lightReserve}
-                  active={isMyTurn}
-                />
-                <Dice
-                  value={gameState.rollValue}
-                  rolling={rollingVisual}
-                  onRoll={handleRoll}
-                  canRoll={canRoll}
-                  mode="stage"
-                />
-                <EdgeScore label="Light Score" value={`${gameState.light.finishedCount}/7`} active={isMyTurn} align="right" />
-              </View>
-            )}
+        <View style={styles.stageWrap}>
+          <View style={styles.scoreRow}>
+            <EdgeScore label="Dark Score" value={`${gameState.dark.finishedCount}/7`} active={!isMyTurn} />
+            <EdgeScore
+              label="Light Score"
+              value={`${gameState.light.finishedCount}/7`}
+              active={isMyTurn}
+              align="right"
+            />
           </View>
 
-          {!isWide && (
-            <View style={styles.mobileBottomRail}>
-              <PieceRail
-                label="Easy Bot Pieces"
-                color="light"
-                tokenVariant="reserve"
-                reserveCount={lightReserve}
-                active={isMyTurn}
-              />
-              <Dice
-                value={gameState.rollValue}
-                rolling={rollingVisual}
-                onRoll={handleRoll}
-                canRoll={canRoll}
-                mode="stage"
-              />
+          <PieceRail
+            label="Dark Reserve"
+            color="dark"
+            tokenVariant="dark"
+            reserveCount={darkReserve}
+            active={!isMyTurn}
+          />
+
+          <GameStageHUD isMyTurn={isMyTurn} canRoll={canRoll} phase={gameState.phase} />
+
+          <View style={styles.boardCard}>
+            <View style={styles.boardShadow} />
+            <Board showRailHints highlightMode="theatrical" boardScale={isCompact ? 0.95 : 1} />
+          </View>
+
+          <PieceRail
+            label="Light Reserve"
+            color="light"
+            tokenVariant="light"
+            reserveCount={lightReserve}
+            active={isMyTurn}
+          />
+
+          <Dice
+            value={gameState.rollValue}
+            rolling={rollingVisual}
+            onRoll={handleRoll}
+            canRoll={canRoll}
+            mode="stage"
+          />
+
+          {recentHistory.length > 0 && (
+            <View style={styles.historyStrip}>
+              <Text style={styles.historyTitle}>Recent</Text>
+              {recentHistory.map((entry, index) => (
+                <Text key={`${entry}-${index}`} style={styles.historyEntry}>
+                  {entry}
+                </Text>
+              ))}
             </View>
           )}
         </View>
@@ -352,51 +392,51 @@ export default function GameRoom() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: urTheme.colors.night,
+    backgroundColor: urTheme.colors.tableWalnut,
   },
-  pageTexture: {
+  tableGrainPrimary: {
     ...StyleSheet.absoluteFillObject,
-    opacity: 0.28,
+    opacity: 0.3,
   },
-  pageGlowTop: {
+  tableGrainSecondary: {
+    ...StyleSheet.absoluteFillObject,
+    opacity: 0.16,
+    transform: [{ rotate: '180deg' }],
+  },
+  tableTopLight: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    height: '32%',
-    backgroundColor: 'rgba(84, 130, 182, 0.18)',
+    height: '42%',
+    backgroundColor: 'rgba(255, 213, 166, 0.16)',
   },
-  pageGlowMiddle: {
+  tableBottomShade: {
     position: 'absolute',
-    top: '34%',
     left: 0,
     right: 0,
-    height: '32%',
-    backgroundColor: 'rgba(33, 58, 93, 0.14)',
-  },
-  pageShadeBottom: {
-    position: 'absolute',
     bottom: 0,
-    left: 0,
-    right: 0,
-    height: '45%',
-    backgroundColor: 'rgba(6, 12, 22, 0.34)',
+    height: '54%',
+    backgroundColor: 'rgba(12, 6, 4, 0.44)',
   },
-  vignetteTop: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 100,
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+  tableVignetteOuter: {
+    ...StyleSheet.absoluteFillObject,
+    borderColor: 'rgba(0, 0, 0, 0.24)',
+    borderWidth: 24,
   },
-  vignetteBottom: {
+  tableVignetteInner: {
+    ...StyleSheet.absoluteFillObject,
+    borderColor: 'rgba(0, 0, 0, 0.13)',
+    borderWidth: 10,
+  },
+  tableSoftSpot: {
     position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 140,
-    backgroundColor: 'rgba(0, 0, 0, 0.24)',
+    top: '28%',
+    left: '16%',
+    width: '68%',
+    height: '36%',
+    borderRadius: urTheme.radii.lg,
+    backgroundColor: 'rgba(255, 238, 211, 0.06)',
   },
   scrollContent: {
     paddingHorizontal: urTheme.spacing.md,
@@ -409,53 +449,34 @@ const styles = StyleSheet.create({
     maxWidth: urTheme.layout.stage.maxWidth,
     gap: urTheme.spacing.md,
   },
-  stageWrapWide: {
-    paddingHorizontal: urTheme.spacing.sm,
-  },
-  stageColumns: {
+  scoreRow: {
     width: '100%',
-    gap: urTheme.spacing.md,
-  },
-  stageColumnsWide: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'center',
-    gap: urTheme.layout.stage.gutter,
-  },
-  sideRailCol: {
-    width: '22%',
-    minWidth: urTheme.layout.stage.sideRailMin,
-    maxWidth: urTheme.layout.stage.sideRailMax,
-    gap: urTheme.spacing.md,
-  },
-  boardCol: {
-    flex: 1,
-    maxWidth: urTheme.layout.boardMax + 70,
-    gap: urTheme.spacing.md,
-    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   boardCard: {
     width: '100%',
     alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+    marginTop: 2,
+    marginBottom: 2,
   },
-  mobileTopRail: {
-    width: '100%',
-  },
-  mobileBottomRail: {
-    width: '100%',
-    gap: urTheme.spacing.md,
-  },
-  mobileScoreRow: {
-    width: '100%',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  boardShadow: {
+    position: 'absolute',
+    width: '84%',
+    height: 44,
+    borderRadius: urTheme.radii.pill,
+    backgroundColor: 'rgba(0, 0, 0, 0.35)',
+    top: '52%',
+    zIndex: 0,
   },
   historyStrip: {
     width: '100%',
     borderRadius: urTheme.radii.md,
     borderWidth: 1,
     borderColor: 'rgba(217, 164, 65, 0.44)',
-    backgroundColor: 'rgba(9, 14, 20, 0.64)',
+    backgroundColor: 'rgba(9, 14, 20, 0.7)',
     paddingHorizontal: urTheme.spacing.md,
     paddingVertical: urTheme.spacing.sm,
     overflow: 'hidden',
@@ -467,7 +488,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   historyEntry: {
-    color: 'rgba(244, 230, 206, 0.86)',
+    color: 'rgba(244, 230, 206, 0.9)',
     fontSize: 12,
     lineHeight: 18,
     marginBottom: 4,

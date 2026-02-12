@@ -1,50 +1,61 @@
-# Nakama backend (local dev)
+# Nakama Backend (Canonical Local Stack)
+
+This is the canonical local backend for the Royal Game of Ur app.
+
+- Compose file: `/Users/Michel/Desktop/ur/backend/docker-compose.yml`
+- Runtime config: `/Users/Michel/Desktop/ur/backend/nakama.yml`
+- Runtime module entrypoint loaded by Nakama: `/nakama/data/modules/build/backend/modules/index.js`
 
 ## Prerequisites
+
 - Docker + Docker Compose
+- Root project dependencies installed (`npm install`)
 
-## Configure environment
-Create a `.env` file in `backend/` (not committed) with values for secrets:
+## Environment
 
-```bash
-POSTGRES_PASSWORD=replace-me
-NAKAMA_SOCKET_SERVER_KEY=replace-me
-NAKAMA_HTTP_KEY=replace-me
-```
-
-> Keep these values out of the Expo client. The client should only use the public
-> socket server key (or a dedicated public key) and the host/port it connects to.
-
-## Run locally
-From the repo root:
+Create `backend/.env` (not committed) from `backend/.env.example`.
 
 ```bash
-cd backend
-cp .env.example .env # optional, or create manually
-docker compose up
+cp backend/.env.example backend/.env
 ```
+
+Expected values:
+
+- `POSTGRES_PASSWORD`
+- `NAKAMA_SOCKET_SERVER_KEY`
+- `NAKAMA_HTTP_KEY`
+
+## Build + Run
+
+From repo root:
+
+```bash
+npm run build:backend
+npm run backend:dev
+```
+
+`backend/docker-compose.yml` runs DB migration before server startup:
+
+- `nakama migrate up --database.address "$NAKAMA_DATABASE_ADDRESS"`
+- then `nakama --config /nakama/data/nakama.yml`
 
 ## Exposed ports
-- `7350` (Nakama API + socket)
-- `7351` (Nakama console)
-- `5432` (Postgres)
 
-## Runtime modules
-Place TypeScript/JavaScript modules in `backend/modules/`.
-Nakama loads `/nakama/data/modules/index.js` as the entrypoint, so compile
-`index.ts` to `index.js` as part of your build process.
+- `7350` Nakama API + socket
+- `7351` Nakama console
+- `5432` Postgres
 
-### Implemented RPCs
-| RPC name | Inputs | Outputs | Client usage |
-| --- | --- | --- | --- |
-| `auth_link_custom` | `{ "customId": string, "username"?: string }` | `{ "userId": string, "customId": string }` | Call after session auth to link a custom ID for a logged-in user via the Nakama JS client (`client.rpc(session, "auth_link_custom", payload)`). |
-| `matchmaker_add` | `{ "minCount"?: number, "maxCount"?: number, "query"?: string, "stringProperties"?: object, "numericProperties"?: object }` | `{ "ticket": string }` | Call after session auth to place the player into matchmaking (`client.rpc(session, "matchmaker_add", payload)`). |
+## Authoritative multiplayer contract
 
-### Matchmaking orchestration
-The `matchmakerMatched` hook creates an authoritative match (`authoritative_match`)
-with the matched user IDs and returns the match ID so Nakama can connect clients.
+The server runtime uses shared protocol definitions from:
 
-### Authoritative match handler
-The `authoritative_match` handler manages state initialization, join/leave events,
-tick processing, and message broadcasting. Client messages are rebroadcast to
-other participants with the same op code.
+- `/Users/Michel/Desktop/ur/shared/urMatchProtocol.ts`
+
+Core op codes:
+
+- `ROLL_REQUEST`
+- `MOVE_REQUEST`
+- `STATE_SNAPSHOT`
+- `SERVER_ERROR`
+
+The match handler applies game rules authoritatively and broadcasts canonical snapshots.

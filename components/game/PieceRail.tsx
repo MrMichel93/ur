@@ -63,6 +63,8 @@ export const PieceRail: React.FC<PieceRailProps> = ({
 
       <View style={styles.rail}>
         <Image source={urTextures.lapisMosaic} resizeMode="cover" style={[styles.railTexture, color === 'dark' && styles.darkRailTexture]} />
+        <View style={styles.railTopGlow} />
+        <View style={styles.railBottomShade} />
         <Animated.View style={[styles.activeGlow, glowStyle]} />
         <View style={styles.innerRail} />
 
@@ -98,10 +100,15 @@ const styles = StyleSheet.create({
     borderRadius: urTheme.radii.pill,
     borderWidth: 1.2,
     borderColor: 'rgba(214, 176, 107, 0.6)',
-    backgroundColor: 'rgba(11, 15, 22, 0.64)',
+    backgroundColor: 'rgba(13, 18, 27, 0.72)',
     overflow: 'hidden',
     justifyContent: 'center',
     paddingHorizontal: 12,
+    shadowColor: '#000',
+    shadowOpacity: 0.24,
+    shadowRadius: 7,
+    shadowOffset: { width: 0, height: 5 },
+    elevation: 6,
   },
   railTexture: {
     ...StyleSheet.absoluteFillObject,
@@ -109,6 +116,22 @@ const styles = StyleSheet.create({
   },
   darkRailTexture: {
     opacity: 0.16,
+  },
+  railTopGlow: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: '42%',
+    backgroundColor: 'rgba(247, 228, 187, 0.1)',
+  },
+  railBottomShade: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: '34%',
+    backgroundColor: 'rgba(0, 0, 0, 0.12)',
   },
   activeGlow: {
     ...StyleSheet.absoluteFillObject,

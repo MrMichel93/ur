@@ -1,6 +1,6 @@
-import { urTheme, urTypography } from '@/constants/urTheme';
+import { urTheme, urTextures, urTypography } from '@/constants/urTheme';
 import React, { useEffect } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Image, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   Easing,
   cancelAnimation,
@@ -60,6 +60,9 @@ export const GameStageHUD: React.FC<GameStageHUDProps> = ({ isMyTurn, canRoll, p
 
   return (
     <View style={styles.wrap}>
+      <Image source={urTextures.lapisMosaic} resizeMode="cover" style={styles.texture} />
+      <View style={styles.topEdgeHighlight} />
+      <View style={styles.innerBevel} />
       <Animated.View style={[styles.turnSweep, turnSweepStyle]} />
       <Animated.View style={[styles.turnOrb, turnGlowStyle]} />
       <View style={styles.textWrap}>
@@ -74,7 +77,7 @@ const styles = StyleSheet.create({
   wrap: {
     width: '100%',
     borderRadius: urTheme.radii.pill,
-    backgroundColor: 'rgba(13, 15, 18, 0.72)',
+    backgroundColor: 'rgba(15, 20, 29, 0.78)',
     borderWidth: 1,
     borderColor: 'rgba(217, 164, 65, 0.56)',
     paddingVertical: urTheme.spacing.sm,
@@ -82,6 +85,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     overflow: 'hidden',
+  },
+  texture: {
+    ...StyleSheet.absoluteFillObject,
+    opacity: 0.22,
+  },
+  topEdgeHighlight: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: '45%',
+    backgroundColor: 'rgba(245, 224, 182, 0.1)',
+  },
+  innerBevel: {
+    ...StyleSheet.absoluteFillObject,
+    margin: 4,
+    borderRadius: urTheme.radii.pill,
+    borderWidth: 1,
+    borderColor: 'rgba(242, 221, 182, 0.2)',
   },
   turnSweep: {
     position: 'absolute',

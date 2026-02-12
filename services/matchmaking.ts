@@ -1,41 +1,22 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { MatchmakerMatched, Session, Socket } from "@heroiclabs/nakama-js";
+import { MatchData, Session, Socket } from "@heroiclabs/nakama-js";
 
+import { PlayerColor } from "@/logic/types";
+import { MatchOpCode, decodePayload, isStateSnapshotPayload } from "@/shared/urMatchProtocol";
 import { nakamaService } from "./nakama";
 
-const DEVICE_ID_STORAGE_KEY = "nakama.deviceId";
+const CONNECT_TIMEOUT_MS = 10_000;
+const START_MATCHMAKING_TIMEOUT_MS = 10_000;
+const WAIT_FOR_MATCH_TIMEOUT_MS = 20_000;
+const JOIN_MATCH_TIMEOUT_MS = 10_000;
 
-const getOrCreateDeviceId = async (): Promise<string> => {
-  const existing = await AsyncStorage.getItem(DEVICE_ID_STORAGE_KEY);
-  if (existing) {
-    return existing;
-  }
+let activeMatchmakerTicket: string | null = null;
 
-  const deviceId = `device-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-  await AsyncStorage.setItem(DEVICE_ID_STORAGE_KEY, deviceId);
-  return deviceId;
-};
+const ensureAuthenticated = async (): Promise<Session> => nakamaService.ensureAuthenticatedDevice();
 
-const ensureAuthenticated = async (): Promise<Session> => {
-  const session = await nakamaService.loadSession();
-  if (session) {
-    return session;
-  }
+const ensureSocket = async (): Promise<Socket> =>
+  nakamaService.connectSocketWithRetry({ attempts: 3, retryDelayMs: 1_000, createStatus: true });
 
-  const deviceId = await getOrCreateDeviceId();
-  return nakamaService.authenticateDevice(deviceId, true);
-};
-
-const ensureSocket = async (): Promise<Socket> => {
-  const existing = nakamaService.getSocket();
-  if (existing) {
-    return existing;
-  }
-
-  return nakamaService.connectSocket();
-};
-
-const waitForMatchmaker = (socket: Socket, timeoutMs: number): Promise<MatchmakerMatched> =>
+const waitForMatchmaker = (socket: Socket, ticket: string, timeoutMs: number): Promise<{ matchId: string; token?: string }> =>
   new Promise((resolve, reject) => {
     const previousHandler = socket.onmatchmakermatched;
     const timeout = setTimeout(() => {
@@ -44,9 +25,12 @@ const waitForMatchmaker = (socket: Socket, timeoutMs: number): Promise<Matchmake
     }, timeoutMs);
 
     socket.onmatchmakermatched = (matched) => {
+      if (matched.ticket !== ticket) {
+        return;
+      }
       clearTimeout(timeout);
       socket.onmatchmakermatched = previousHandler;
-      resolve(matched);
+      resolve({ matchId: matched.match_id, token: matched.token || undefined });
     };
   });
 
@@ -55,6 +39,7 @@ const withTimeout = async <T>(promise: Promise<T>, timeoutMs: number, message: s
   const timeoutPromise = new Promise<never>((_, reject) => {
     timeoutId = setTimeout(() => reject(new Error(message)), timeoutMs);
   });
+
   try {
     return await Promise.race([promise, timeoutPromise]);
   } finally {
@@ -64,37 +49,131 @@ const withTimeout = async <T>(promise: Promise<T>, timeoutMs: number, message: s
   }
 };
 
+const waitForInitialAssignment = (
+  socket: Socket,
+  matchId: string,
+  userId: string,
+  timeoutMs: number
+): Promise<PlayerColor | null> =>
+  new Promise((resolve) => {
+    const previousHandler = socket.onmatchdata;
+    const timeout = setTimeout(() => {
+      socket.onmatchdata = previousHandler;
+      resolve(null);
+    }, timeoutMs);
+
+    socket.onmatchdata = (matchData: MatchData) => {
+      if (matchData.match_id !== matchId || matchData.op_code !== MatchOpCode.STATE_SNAPSHOT) {
+        if (previousHandler) {
+          previousHandler(matchData);
+        }
+        return;
+      }
+
+      let rawPayload = "";
+      if (typeof matchData.data === "string") {
+        rawPayload = matchData.data;
+      } else if (typeof TextDecoder !== "undefined") {
+        rawPayload = new TextDecoder().decode(matchData.data);
+      } else {
+        rawPayload = String.fromCharCode(...Array.from(matchData.data));
+      }
+
+      const payload = decodePayload(rawPayload);
+      if (isStateSnapshotPayload(payload)) {
+        const assignment = payload.assignments[userId];
+        if (assignment === "light" || assignment === "dark") {
+          clearTimeout(timeout);
+          socket.onmatchdata = previousHandler;
+          resolve(assignment);
+          return;
+        }
+      }
+
+      if (previousHandler) {
+        previousHandler(matchData);
+      }
+    };
+  });
+
 export type MatchResult = {
   matchId: string;
   session: Session;
   userId: string;
+  matchmakerTicket: string | null;
+  playerColor: PlayerColor | null;
 };
 
 export type MatchmakingHandlers = {
   onSearching?: () => void;
 };
 
+export const cancelMatchmaking = async (): Promise<void> => {
+  const ticket = activeMatchmakerTicket;
+  if (!ticket) {
+    return;
+  }
+
+  activeMatchmakerTicket = null;
+  const socket = nakamaService.getSocket();
+  if (!socket) {
+    return;
+  }
+
+  try {
+    await socket.removeMatchmaker(ticket);
+  } catch {
+    // Ignore removal errors if the ticket was already consumed or the socket dropped.
+  }
+};
+
 export const findMatch = async (handlers?: MatchmakingHandlers): Promise<MatchResult> => {
   const session = await ensureAuthenticated();
   const socket = await withTimeout(
     ensureSocket(),
-    10_000,
+    CONNECT_TIMEOUT_MS,
     "Connecting to the game server timed out. Please retry."
   );
 
-  const matchmakerPromise = waitForMatchmaker(socket, 20_000);
-  await withTimeout(
-    socket.addMatchmaker("*", 2, 2),
-    10_000,
-    "Unable to start matchmaking. Please retry."
-  );
-  handlers?.onSearching?.();
+  try {
+    const ticket = await withTimeout(
+      socket.addMatchmaker("*", 2, 2),
+      START_MATCHMAKING_TIMEOUT_MS,
+      "Unable to start matchmaking. Please retry."
+    );
 
-  const matched = await matchmakerPromise;
-  const match = await withTimeout(
-    socket.joinMatch(matched.match_id || undefined, matched.token || undefined),
-    10_000,
-    "Joining the match timed out. Please retry."
-  );
-  return { matchId: match.match_id, session, userId: session.user_id };
+    activeMatchmakerTicket = ticket.ticket;
+    handlers?.onSearching?.();
+
+    const matched = await waitForMatchmaker(socket, ticket.ticket, WAIT_FOR_MATCH_TIMEOUT_MS);
+    activeMatchmakerTicket = null;
+
+    const match = await withTimeout(
+      socket.joinMatch(matched.matchId, matched.token),
+      JOIN_MATCH_TIMEOUT_MS,
+      "Joining the match timed out. Please retry."
+    );
+
+    if (!match.match_id) {
+      throw new Error("Match join did not return a match ID.");
+    }
+
+    if (!session.user_id) {
+      throw new Error("Authenticated session is missing user ID.");
+    }
+
+    const playerColor = await waitForInitialAssignment(socket, match.match_id, session.user_id, 3_000);
+
+    return {
+      matchId: match.match_id,
+      session,
+      userId: session.user_id,
+      matchmakerTicket: ticket.ticket,
+      playerColor,
+    };
+  } catch (error) {
+    await cancelMatchmaking();
+    nakamaService.disconnectSocket(false);
+    throw error;
+  }
 };

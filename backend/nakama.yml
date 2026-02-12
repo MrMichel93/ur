@@ -16,7 +16,7 @@ session:
 
 runtime:
   path: "/nakama/data/modules"
-  js_entrypoint: "index.js"
+  js_entrypoint: "build/backend/modules/index.js"
   http_key: ${NAKAMA_HTTP_KEY}
 
 metrics:

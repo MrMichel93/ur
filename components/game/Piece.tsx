@@ -83,9 +83,9 @@ export const Piece: React.FC<PieceProps> = ({
   }, [motion, state]);
 
   const sizePx = useMemo(() => {
-    if (size === 'sm') return 32;
-    if (size === 'lg') return 44;
-    return 36;
+    if (size === 'sm') return 34;
+    if (size === 'lg') return 46;
+    return 38;
   }, [size]);
 
   const pieceStyle = useAnimatedStyle(() => ({
@@ -135,6 +135,7 @@ export const Piece: React.FC<PieceProps> = ({
         <Animated.View style={[styles.targetGlow, glowStyle, { width: sizePx + 8, height: sizePx + 8 }]} />
       )}
 
+      <View style={[styles.baseShadow, { width: sizePx - 4, height: sizePx * 0.38 }]} />
       <View
         style={[
           styles.base,
@@ -148,6 +149,8 @@ export const Piece: React.FC<PieceProps> = ({
         ]}
       >
         <View style={[styles.innerRim, { borderColor: 'rgba(241, 230, 208, 0.45)' }]} />
+        <View style={styles.topShine} />
+        <View style={styles.edgeShade} />
         <View
           style={[
             styles.core,
@@ -177,6 +180,12 @@ const styles = StyleSheet.create({
     borderRadius: urTheme.radii.pill,
     backgroundColor: 'rgba(111, 184, 255, 0.24)',
   },
+  baseShadow: {
+    position: 'absolute',
+    bottom: 2,
+    borderRadius: urTheme.radii.pill,
+    backgroundColor: 'rgba(5, 8, 11, 0.34)',
+  },
   base: {
     borderRadius: urTheme.radii.pill,
     borderWidth: 1.8,
@@ -192,6 +201,24 @@ const styles = StyleSheet.create({
     margin: 2.4,
     borderRadius: urTheme.radii.pill,
     borderWidth: 0.8,
+  },
+  topShine: {
+    position: 'absolute',
+    top: 1,
+    left: 4,
+    right: 4,
+    height: '42%',
+    borderRadius: urTheme.radii.pill,
+    backgroundColor: 'rgba(255, 245, 214, 0.16)',
+  },
+  edgeShade: {
+    position: 'absolute',
+    left: 3,
+    right: 3,
+    bottom: 1,
+    height: '36%',
+    borderRadius: urTheme.radii.pill,
+    backgroundColor: 'rgba(0, 0, 0, 0.16)',
   },
   core: {
     borderRadius: urTheme.radii.pill,

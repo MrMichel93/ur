@@ -1,6 +1,6 @@
-import { urTheme, urTypography } from '@/constants/urTheme';
+import { urTheme, urTextures, urTypography } from '@/constants/urTheme';
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Image, StyleSheet, Text, View } from 'react-native';
 
 interface EdgeScoreProps {
   label: string;
@@ -12,6 +12,9 @@ interface EdgeScoreProps {
 export const EdgeScore: React.FC<EdgeScoreProps> = ({ label, value, active = false, align = 'left' }) => {
   return (
     <View style={[styles.wrap, align === 'right' && styles.rightWrap, active && styles.activeWrap]}>
+      <Image source={urTextures.lapisMosaic} resizeMode="cover" style={styles.texture} />
+      <View style={styles.topGlow} />
+      <View style={styles.innerBorder} />
       <Text style={styles.label}>{label}</Text>
       <Text style={styles.value}>{value}</Text>
     </View>
@@ -26,8 +29,9 @@ const styles = StyleSheet.create({
     borderRadius: urTheme.radii.sm,
     borderWidth: 1,
     borderColor: 'rgba(217, 164, 65, 0.55)',
-    backgroundColor: 'rgba(10, 13, 18, 0.66)',
+    backgroundColor: 'rgba(11, 16, 23, 0.74)',
     alignItems: 'flex-start',
+    overflow: 'hidden',
   },
   rightWrap: {
     alignItems: 'flex-end',
@@ -38,6 +42,25 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.28,
     shadowRadius: 7,
     elevation: 5,
+  },
+  texture: {
+    ...StyleSheet.absoluteFillObject,
+    opacity: 0.22,
+  },
+  topGlow: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: '46%',
+    backgroundColor: 'rgba(255, 232, 194, 0.09)',
+  },
+  innerBorder: {
+    ...StyleSheet.absoluteFillObject,
+    margin: 4,
+    borderRadius: urTheme.radii.xs + 1,
+    borderWidth: 1,
+    borderColor: 'rgba(248, 228, 188, 0.2)',
   },
   label: {
     ...urTypography.label,

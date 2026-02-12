@@ -10,6 +10,9 @@ export const urTheme = {
   colors: {
     night: '#0B1F2A',
     ink: '#1C2229',
+    tableOak: '#3E2A1F',
+    tableWalnut: '#2B1B14',
+    tableAsh: '#5A3C2D',
     lapis: '#1E5AA8',
     lapisBright: '#3D7DFF',
     gold: '#D9A441',
@@ -27,7 +30,7 @@ export const urTheme = {
   spacing: { xs: 6, sm: 10, md: 16, lg: 24, xl: 32 },
   layout: {
     stage: {
-      maxWidth: 1360,
+      maxWidth: 1040,
       sideRailMin: 200,
       sideRailMax: 320,
       gutter: 18,

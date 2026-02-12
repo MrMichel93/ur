@@ -1,62 +1,65 @@
-# Welcome to your Expo app 👋
+# Royal Game of Ur (Expo + Nakama)
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+This app supports two runtime transport modes:
 
-## Get started
+- `nakama`: online authoritative multiplayer against a local/remote Nakama server.
+- `offline`: local gameplay fallback (no backend connection), including local-vs-bot flow.
 
-1. Install dependencies
+## Local-First Runbook (iOS simulator)
 
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-## Configuration
-
-The Expo client reads Nakama connection settings from environment variables (or Expo `extra` config). Provide the following values before starting the app:
-
-- `EXPO_PUBLIC_NAKAMA_HOST`: Nakama host (ex: `localhost`)
-- `EXPO_PUBLIC_NAKAMA_PORT`: Nakama port (ex: `7350`)
-- `EXPO_PUBLIC_NAKAMA_USE_SSL`: `true`/`false` to enable TLS
-- `EXPO_PUBLIC_NAKAMA_SERVER_KEY`: Public server key used by the client for socket auth
-- `EXPO_PUBLIC_NAKAMA_TIMEOUT_MS`: Optional timeout override in milliseconds (default `7000`)
-
-The local backend stack (Nakama + Postgres) is configured in `backend/README.md`, including the `.env` secrets and the Docker Compose workflow. Use those instructions to run the backend before starting the Expo app.
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+1. Install dependencies.
 
 ```bash
-npm run reset-project
+npm install
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+2. Build Nakama runtime module (`backend/modules/build/backend/modules/index.js`).
 
-## Learn more
+```bash
+npm run build:backend
+```
 
-To learn more about developing your project with Expo, look at the following resources:
+3. Start the canonical local backend stack.
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+```bash
+npm run backend:dev
+```
 
-## Join the community
+4. In a separate terminal, set Expo env vars for your Nakama server.
 
-Join our community of developers creating universal apps.
+```bash
+export EXPO_PUBLIC_GAME_TRANSPORT=nakama
+export EXPO_PUBLIC_NAKAMA_HOST=207.154.229.39
+export EXPO_PUBLIC_NAKAMA_PORT=7350
+export EXPO_PUBLIC_NAKAMA_USE_SSL=false
+export EXPO_PUBLIC_NAKAMA_SOCKET_SERVER_KEY=<same value as NAKAMA_SOCKET_SERVER_KEY on backend>
+# Optional legacy alias (also supported):
+# export EXPO_PUBLIC_NAKAMA_SERVER_KEY=<same value as NAKAMA_SOCKET_SERVER_KEY on backend>
+export EXPO_PUBLIC_NAKAMA_TIMEOUT_MS=7000
+```
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+5. Run Expo on iOS simulator.
+
+```bash
+npx expo start --ios
+```
+
+## Offline Revert (one line)
+
+If you want to force local/offline mode without touching code:
+
+```bash
+export EXPO_PUBLIC_GAME_TRANSPORT=offline
+```
+
+## Scripts
+
+- `npm run build:backend`: compile TS Nakama runtime to `backend/modules/build/backend/modules/index.js`
+- `npm run backend:up`: build runtime and start backend stack detached
+- `npm run backend:dev`: build runtime and start backend stack attached
+
+## Backend stack reference
+
+Canonical Nakama stack: `/Users/Michel/Desktop/ur/backend/docker-compose.yml`
+
+Legacy compose file kept for reference only: `/Users/Michel/Desktop/ur/docker-compose-postgres.yml`

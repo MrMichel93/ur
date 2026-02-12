@@ -3,146 +3,211 @@ import { GameState, MoveAction, PlayerColor } from '@/logic/types';
 import { createInitialState, getValidMoves, applyMove, rollDice } from '@/logic/engine';
 import { MatchPresenceEvent, Session } from '@heroiclabs/nakama-js';
 
-interface GameStore {
-    gameState: GameState;
-    playerId: string; // 'light'
-    nakamaSession: Session | null;
-    userId: string | null;
-    matchId: string | null;
-    validMoves: MoveAction[];
-    matchPresences: string[];
-    socketState: 'idle' | 'connecting' | 'connected' | 'disconnected' | 'error';
-    matchMoveSender: ((move: MoveAction) => void) | null;
+type OnlineMode = 'offline' | 'nakama';
 
-    // Actions
-    initGame: (matchId: string) => void;
-    setMatchId: (matchId: string) => void;
-    setNakamaSession: (session: Session | null) => void;
-    setUserId: (userId: string | null) => void;
-    setGameStateFromServer: (state: GameState) => void;
-    updateMatchPresences: (event: MatchPresenceEvent) => void;
-    setSocketState: (status: 'idle' | 'connecting' | 'connected' | 'disconnected' | 'error') => void;
-    setMatchMoveSender: (sender: ((move: MoveAction) => void) | null) => void;
-    roll: () => void;
-    makeMove: (move: MoveAction) => void;
-    reset: () => void;
+type RollCommandSender = (() => void | Promise<void>) | null;
+type MoveCommandSender = ((move: MoveAction) => void | Promise<void>) | null;
+
+interface GameStore {
+  gameState: GameState;
+  playerId: string;
+  playerColor: PlayerColor | null;
+  onlineMode: OnlineMode;
+  serverRevision: number;
+  nakamaSession: Session | null;
+  userId: string | null;
+  matchId: string | null;
+  validMoves: MoveAction[];
+  matchPresences: string[];
+  socketState: 'idle' | 'connecting' | 'connected' | 'disconnected' | 'error';
+  rollCommandSender: RollCommandSender;
+  moveCommandSender: MoveCommandSender;
+
+  initGame: (matchId: string) => void;
+  setMatchId: (matchId: string) => void;
+  setNakamaSession: (session: Session | null) => void;
+  setUserId: (userId: string | null) => void;
+  setOnlineMode: (mode: OnlineMode) => void;
+  setPlayerColor: (color: PlayerColor | null) => void;
+  setServerRevision: (revision: number) => void;
+  setGameStateFromServer: (state: GameState) => void;
+  applyServerSnapshot: (state: GameState, revision: number, matchId?: string) => void;
+  updateMatchPresences: (event: MatchPresenceEvent) => void;
+  setSocketState: (status: 'idle' | 'connecting' | 'connected' | 'disconnected' | 'error') => void;
+  setRollCommandSender: (sender: RollCommandSender) => void;
+  setMoveCommandSender: (sender: MoveCommandSender) => void;
+  roll: () => void;
+  makeMove: (move: MoveAction) => void;
+  reset: () => void;
 }
 
 export const useGameStore = create<GameStore>((set, get) => ({
-    gameState: createInitialState(),
-    playerId: 'light',
-    nakamaSession: null,
-    userId: null,
-    matchId: null,
-    validMoves: [],
-    matchPresences: [],
-    socketState: 'idle',
-    matchMoveSender: null,
+  gameState: createInitialState(),
+  playerId: 'light',
+  playerColor: null,
+  onlineMode: 'offline',
+  serverRevision: 0,
+  nakamaSession: null,
+  userId: null,
+  matchId: null,
+  validMoves: [],
+  matchPresences: [],
+  socketState: 'idle',
+  rollCommandSender: null,
+  moveCommandSender: null,
 
-    initGame: (matchId) => {
-        set({
-            matchId,
-            gameState: createInitialState(),
-            validMoves: [],
-            matchPresences: [],
-            socketState: 'idle'
-        });
-    },
+  initGame: (matchId) => {
+    set({
+      matchId,
+      gameState: createInitialState(),
+      validMoves: [],
+      matchPresences: [],
+      socketState: 'idle',
+      serverRevision: 0,
+      playerColor: null,
+      rollCommandSender: null,
+      moveCommandSender: null,
+    });
+  },
 
-    setMatchId: (matchId) => {
-        set({ matchId });
-    },
+  setMatchId: (matchId) => {
+    set({ matchId });
+  },
 
-    setNakamaSession: (session) => {
-        set({ nakamaSession: session });
-    },
+  setNakamaSession: (session) => {
+    set({ nakamaSession: session });
+  },
 
-    setUserId: (userId) => {
-        set({ userId });
-    },
+  setUserId: (userId) => {
+    set({ userId });
+  },
 
-    setGameStateFromServer: (state) => {
-        const validMoves = state.rollValue !== null && state.phase === 'moving'
-            ? getValidMoves(state, state.rollValue)
-            : [];
-        set({ gameState: state, validMoves });
-    },
+  setOnlineMode: (mode) => {
+    set({ onlineMode: mode });
+  },
 
-    updateMatchPresences: (event) => {
-        set((current) => {
-            const presences = new Set(current.matchPresences);
-            event.joins?.forEach((presence) => presences.add(presence.user_id));
-            event.leaves?.forEach((presence) => presences.delete(presence.user_id));
-            return { matchPresences: Array.from(presences) };
-        });
-    },
+  setPlayerColor: (color) => {
+    set({ playerColor: color });
+  },
 
-    setSocketState: (status) => {
-        set({ socketState: status });
-    },
+  setServerRevision: (revision) => {
+    set({ serverRevision: revision });
+  },
 
-    setMatchMoveSender: (sender) => {
-        set({ matchMoveSender: sender });
-    },
+  setGameStateFromServer: (state) => {
+    const validMoves = state.rollValue !== null && state.phase === 'moving'
+      ? getValidMoves(state, state.rollValue)
+      : [];
+    set({ gameState: state, validMoves });
+  },
 
-    reset: () => {
-        set({
-            matchId: null,
-            gameState: createInitialState(),
-            validMoves: [],
-            matchPresences: [],
-            socketState: 'idle',
-            matchMoveSender: null
-        });
-    },
+  applyServerSnapshot: (state, revision, matchId) => {
+    set((current) => {
+      if (revision < current.serverRevision) {
+        return {};
+      }
 
-    roll: () => {
-        const { gameState } = get();
-        if (gameState.phase !== 'rolling') return;
+      const validMoves = state.rollValue !== null && state.phase === 'moving'
+        ? getValidMoves(state, state.rollValue)
+        : [];
 
-        const rollValue = rollDice();
-        // Force type casting or ensure types match. 
-        // Types: rollValue: number. gameState.rollValue: number | null.
-        // phase: 'moving'.
-        const nextState: GameState = {
-            ...gameState,
-            rollValue,
-            phase: 'moving'
-        };
+      return {
+        gameState: state,
+        validMoves,
+        serverRevision: revision,
+        ...(matchId ? { matchId } : {}),
+      };
+    });
+  },
 
-        const validMoves = getValidMoves(nextState, rollValue);
+  updateMatchPresences: (event) => {
+    set((current) => {
+      const presences = new Set(current.matchPresences);
+      event.joins?.forEach((presence) => presences.add(presence.user_id));
+      event.leaves?.forEach((presence) => presences.delete(presence.user_id));
+      return { matchPresences: Array.from(presences) };
+    });
+  },
 
-        if (validMoves.length === 0) {
-            setTimeout(() => {
-                const skippedState: GameState = { ...nextState };
-                skippedState.currentTurn = skippedState.currentTurn === 'light' ? 'dark' : 'light';
-                skippedState.phase = 'rolling';
-                skippedState.rollValue = null;
-                skippedState.history.push(`${gameState.currentTurn} rolled ${rollValue} but had no moves.`);
+  setSocketState: (status) => {
+    set({ socketState: status });
+  },
 
-                set({ gameState: skippedState, validMoves: [] });
+  setRollCommandSender: (sender) => {
+    set({ rollCommandSender: sender });
+  },
 
-                // Bot trigger handled by hook or here? 
-                // If we rely on hook, we just switch state.
-            }, 1000);
+  setMoveCommandSender: (sender) => {
+    set({ moveCommandSender: sender });
+  },
 
-            set({ gameState: nextState, validMoves: [] });
-            return;
-        }
+  reset: () => {
+    set({
+      matchId: null,
+      gameState: createInitialState(),
+      validMoves: [],
+      matchPresences: [],
+      socketState: 'idle',
+      rollCommandSender: null,
+      moveCommandSender: null,
+      playerColor: null,
+      onlineMode: 'offline',
+      serverRevision: 0,
+      nakamaSession: null,
+      userId: null,
+    });
+  },
 
-        set({ gameState: nextState, validMoves });
-    },
+  roll: () => {
+    const { gameState, onlineMode, rollCommandSender } = get();
+    if (gameState.phase !== 'rolling') return;
 
-    makeMove: (move) => {
-        const { gameState } = get();
-        if (gameState.phase !== 'moving') return;
-
-        const sender = get().matchMoveSender;
-        if (sender) {
-            sender(move);
-        }
-
-        const newState = applyMove(gameState, move);
-        set({ gameState: newState, validMoves: [] });
+    if (onlineMode === 'nakama') {
+      if (rollCommandSender) {
+        void rollCommandSender();
+      }
+      return;
     }
+
+    const rollValue = rollDice();
+    const nextState: GameState = {
+      ...gameState,
+      rollValue,
+      phase: 'moving'
+    };
+
+    const validMoves = getValidMoves(nextState, rollValue);
+
+    if (validMoves.length === 0) {
+      setTimeout(() => {
+        const skippedState: GameState = { ...nextState };
+        skippedState.currentTurn = skippedState.currentTurn === 'light' ? 'dark' : 'light';
+        skippedState.phase = 'rolling';
+        skippedState.rollValue = null;
+        skippedState.history.push(`${gameState.currentTurn} rolled ${rollValue} but had no moves.`);
+
+        set({ gameState: skippedState, validMoves: [] });
+      }, 1000);
+
+      set({ gameState: nextState, validMoves: [] });
+      return;
+    }
+
+    set({ gameState: nextState, validMoves });
+  },
+
+  makeMove: (move) => {
+    const { gameState, onlineMode, moveCommandSender } = get();
+    if (gameState.phase !== 'moving') return;
+
+    if (onlineMode === 'nakama') {
+      if (moveCommandSender) {
+        void moveCommandSender(move);
+      }
+      return;
+    }
+
+    const newState = applyMove(gameState, move);
+    set({ gameState: newState, validMoves: [] });
+  }
 }));
