@@ -45,6 +45,16 @@ npm run backend:dev
 - `7351` Nakama console
 - `5432` Postgres
 
+## Production deployment (Vercel web clients)
+
+Use the dedicated production stack in `/Users/Michel/Desktop/ur/backend/deploy`.
+
+- Compose file: `/Users/Michel/Desktop/ur/backend/deploy/docker-compose.prod.yml`
+- TLS reverse proxy: `/Users/Michel/Desktop/ur/backend/deploy/Caddyfile`
+- Env template: `/Users/Michel/Desktop/ur/backend/deploy/env.production.example`
+
+This keeps raw Nakama ports off the public internet and serves Nakama at `https://nakama.<your-domain>` for HTTPS/WSS browser clients.
+
 ## Authoritative multiplayer contract
 
 The server runtime uses shared protocol definitions from:
