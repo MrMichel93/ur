@@ -1,32 +1,41 @@
 import { Button } from '@/components/ui/Button';
 import { urTheme, urTextures, urTypography } from '@/constants/urTheme';
-import { useMatchmaking } from '@/hooks/useMatchmaking';
-import React from 'react';
+import { LobbyMode, useMatchmaking } from '@/hooks/useMatchmaking';
+import { useLocalSearchParams } from 'expo-router';
+import React, { useMemo } from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 
 export default function Lobby() {
-  const { startMatch, status, errorMessage } = useMatchmaking();
+  const { mode: rawMode } = useLocalSearchParams<{ mode?: string }>();
+  const mode: LobbyMode = useMemo(() => (rawMode === 'online' ? 'online' : 'bot'), [rawMode]);
+  const { startMatch, status, errorMessage, onlineCount } = useMatchmaking(mode);
 
   const handleStart = async () => {
     await startMatch();
   };
 
   const isBusy = status === 'connecting' || status === 'searching';
-  const buttonTitle =
-    status === 'error' ? 'Retry Matchmaking' : isBusy ? 'Searching...' : 'Start Game';
+
+  const buttonTitle = (() => {
+    if (mode === 'bot') return 'Start Game';
+    if (status === 'error') return 'Retry Matchmaking';
+    if (isBusy) return 'Searching...';
+    return 'Find Opponent';
+  })();
 
   const statusLabel = (() => {
+    if (mode === 'bot') return 'Play against the ancient strategy engine.';
     switch (status) {
       case 'connecting':
-        return 'Connecting to Nakama...';
+        return 'Connecting to server...';
       case 'searching':
-        return 'Finding an opponent...';
+        return 'Searching for an opponent...';
       case 'matched':
-        return 'Match found. Entering chamber...';
+        return 'Opponent found! Entering match...';
       case 'error':
-        return 'Matchmaking failed. Retry?';
+        return 'Could not find an opponent. Try again?';
       default:
-        return 'Ready to begin.';
+        return 'Ready to find an opponent.';
     }
   })();
 
@@ -40,8 +49,26 @@ export default function Lobby() {
         <Image source={urTextures.goldInlay} resizeMode="repeat" style={styles.cardTexture} />
         <View style={styles.cardBorder} />
 
-        <Text style={styles.title}>Summon Match</Text>
-        <Text style={styles.subtitle}>Challenge the ancient strategy engine in a crafted arena.</Text>
+        <Text style={styles.title}>
+          {mode === 'online' ? 'Online Match' : 'Bot Match'}
+        </Text>
+        <Text style={styles.subtitle}>
+          {mode === 'online'
+            ? 'Challenge a real opponent from across the world.'
+            : 'Challenge the ancient strategy engine in a crafted arena.'}
+        </Text>
+
+        {mode === 'online' && (
+          <View style={styles.onlineCountRow}>
+            <View style={[styles.onlineDot, onlineCount && onlineCount > 0 ? styles.onlineDotActive : null]} />
+            <Text style={styles.onlineCountText}>
+              {onlineCount !== null
+                ? `${onlineCount} player${onlineCount !== 1 ? 's' : ''} online`
+                : 'Checking...'}
+            </Text>
+          </View>
+        )}
+
         <Text style={[styles.statusText, status === 'error' && styles.statusError]}>
           {errorMessage ?? statusLabel}
         </Text>
@@ -120,6 +147,31 @@ const styles = StyleSheet.create({
     lineHeight: 21,
     marginBottom: urTheme.spacing.md,
   },
+  onlineCountRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: urTheme.spacing.sm,
+    gap: 8,
+  },
+  onlineDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: 'rgba(128, 128, 128, 0.6)',
+  },
+  onlineDotActive: {
+    backgroundColor: '#4ADE80',
+    shadowColor: '#4ADE80',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.6,
+    shadowRadius: 4,
+  },
+  onlineCountText: {
+    ...urTypography.label,
+    color: 'rgba(216, 232, 251, 0.9)',
+    fontSize: 13,
+  },
   statusText: {
     ...urTypography.label,
     color: 'rgba(216, 232, 251, 0.9)',
@@ -131,3 +183,4 @@ const styles = StyleSheet.create({
     color: '#F6AAA2',
   },
 });
+

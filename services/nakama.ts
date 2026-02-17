@@ -27,7 +27,7 @@ export class NakamaService {
   private session: Session | null = null;
   private socket: Socket | null = null;
 
-  private getClient(): Client {
+  getClient(): Client {
     if (!this.client) {
       const config = getNakamaConfig();
       const host = config.host;
