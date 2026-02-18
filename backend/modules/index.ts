@@ -42,24 +42,24 @@ const RPC_AUTH_LINK_CUSTOM = "auth_link_custom";
 const RPC_MATCHMAKER_ADD = "matchmaker_add";
 const MATCH_HANDLER = "authoritative_match";
 
-export function InitModule(
+function InitModule(
   _ctx: nkruntime.Context,
   logger: nkruntime.Logger,
   _nk: nkruntime.Nakama,
   initializer: nkruntime.Initializer
 ) {
-  initializer.registerRpc(RPC_AUTH_LINK_CUSTOM, rpcAuthLinkCustom);
-  initializer.registerRpc(RPC_MATCHMAKER_ADD, rpcMatchmakerAdd);
+  initializer.registerRpc(RPC_AUTH_LINK_CUSTOM, runtimeGlobals.rpcAuthLinkCustom);
+  initializer.registerRpc(RPC_MATCHMAKER_ADD, runtimeGlobals.rpcMatchmakerAdd);
   initializer.registerMatch(MATCH_HANDLER, {
-    matchInit,
-    matchJoinAttempt,
-    matchJoin,
-    matchLeave,
-    matchLoop,
-    matchTerminate,
-    matchSignal,
+    matchInit: runtimeGlobals.matchInit,
+    matchJoinAttempt: runtimeGlobals.matchJoinAttempt,
+    matchJoin: runtimeGlobals.matchJoin,
+    matchLeave: runtimeGlobals.matchLeave,
+    matchLoop: runtimeGlobals.matchLoop,
+    matchTerminate: runtimeGlobals.matchTerminate,
+    matchSignal: runtimeGlobals.matchSignal,
   });
-  initializer.registerMatchmakerMatched(matchmakerMatched);
+  initializer.registerMatchmakerMatched(runtimeGlobals.matchmakerMatched);
 
   logger.info("Nakama runtime module loaded.");
 }
@@ -456,3 +456,33 @@ function broadcastSnapshot(dispatcher: nkruntime.MatchDispatcher, state: MatchSt
 
   dispatcher.broadcastMessage(MatchOpCode.STATE_SNAPSHOT, encodePayload(payload));
 }
+
+type RuntimeGlobalBindings = {
+  InitModule: typeof InitModule;
+  rpcAuthLinkCustom: typeof rpcAuthLinkCustom;
+  rpcMatchmakerAdd: typeof rpcMatchmakerAdd;
+  matchmakerMatched: typeof matchmakerMatched;
+  matchInit: typeof matchInit;
+  matchJoinAttempt: typeof matchJoinAttempt;
+  matchJoin: typeof matchJoin;
+  matchLeave: typeof matchLeave;
+  matchLoop: typeof matchLoop;
+  matchTerminate: typeof matchTerminate;
+  matchSignal: typeof matchSignal;
+};
+
+const runtimeGlobals: RuntimeGlobalBindings = {
+  InitModule,
+  rpcAuthLinkCustom,
+  rpcMatchmakerAdd,
+  matchmakerMatched,
+  matchInit,
+  matchJoinAttempt,
+  matchJoin,
+  matchLeave,
+  matchLoop,
+  matchTerminate,
+  matchSignal,
+};
+
+Object.assign(globalThis as Record<string, unknown>, runtimeGlobals);
