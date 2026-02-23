@@ -1,6 +1,6 @@
 import { urShadows, urTheme, urTextures } from '@/constants/urTheme';
 import { BOARD_COLS, BOARD_ROWS, PATH_DARK, PATH_LENGTH, PATH_LIGHT } from '@/logic/constants';
-import { MoveAction } from '@/logic/types';
+import { GameState, MoveAction, PlayerColor } from '@/logic/types';
 import { useGameStore } from '@/store/useGameStore';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
@@ -34,6 +34,11 @@ interface BoardProps {
   showRailHints?: boolean;
   highlightMode?: 'subtle' | 'theatrical';
   boardScale?: number;
+  gameStateOverride?: GameState;
+  validMovesOverride?: MoveAction[];
+  onMakeMoveOverride?: (move: MoveAction) => void;
+  playerColorOverride?: PlayerColor | null;
+  allowInteraction?: boolean;
 }
 
 interface Point {
@@ -50,16 +55,26 @@ export const Board: React.FC<BoardProps> = ({
   showRailHints = false,
   highlightMode = 'theatrical',
   boardScale = 1,
+  gameStateOverride,
+  validMovesOverride,
+  onMakeMoveOverride,
+  playerColorOverride,
+  allowInteraction = true,
 }) => {
-  const gameState = useGameStore((state) => state.gameState);
-  const validMoves = useGameStore((state) => state.validMoves);
-  const makeMove = useGameStore((state) => state.makeMove);
-  const playerColor = useGameStore((state) => state.playerColor);
+  const storeGameState = useGameStore((state) => state.gameState);
+  const storeValidMoves = useGameStore((state) => state.validMoves);
+  const storeMakeMove = useGameStore((state) => state.makeMove);
+  const storePlayerColor = useGameStore((state) => state.playerColor);
   const { width } = useWindowDimensions();
   const [selectedMove, setSelectedMove] = useState<MoveAction | null>(null);
 
   const cuePulse = useSharedValue(0);
   const previewPulse = useSharedValue(0);
+
+  const gameState = gameStateOverride ?? storeGameState;
+  const validMoves = validMovesOverride ?? storeValidMoves;
+  const makeMove = onMakeMoveOverride ?? storeMakeMove;
+  const playerColor = playerColorOverride ?? storePlayerColor;
 
   const boardWidth = useMemo(
     () => Math.min(width - urTheme.spacing.lg, urTheme.layout.boardMax) * boardScale,
@@ -130,6 +145,7 @@ export const Board: React.FC<BoardProps> = ({
     assignedPlayerColor ? mapIndexToCoord(assignedPlayerColor, index, r, c) : false;
 
   const isMyTurn = assignedPlayerColor !== null && gameState.currentTurn === assignedPlayerColor;
+  const isInteractiveTurn = allowInteraction && isMyTurn;
 
   const spawnMove = useMemo(
     () => validMoves.find((move) => move.fromIndex === -1) ?? null,
@@ -286,7 +302,7 @@ export const Board: React.FC<BoardProps> = ({
   };
 
   const handleSpawnCuePress = () => {
-    if (!spawnMove || !isMyTurn || gameState.phase !== 'moving') return;
+    if (!spawnMove || !isInteractiveTurn || gameState.phase !== 'moving') return;
 
     if (
       selectedMove &&
@@ -302,7 +318,7 @@ export const Board: React.FC<BoardProps> = ({
   };
 
   const handleTilePress = (r: number, c: number) => {
-    if (!assignedPlayerColor || !isMyTurn || gameState.phase !== 'moving') return;
+    if (!assignedPlayerColor || !isInteractiveTurn || gameState.phase !== 'moving') return;
 
     const moveFromTile = validMoves.find(
       (move) => move.fromIndex >= 0 && mapAssignedIndexToCoord(move.fromIndex, r, c),
@@ -409,7 +425,7 @@ export const Board: React.FC<BoardProps> = ({
           !!selectedMove && selectedMove.fromIndex >= 0 && mapAssignedIndexToCoord(selectedMove.fromIndex, r, c);
 
         const isValidTarget = isSelectedDestination || isScoringDestination || isDestination;
-        const isInteractable = isMyTurn && (isValidTarget || !!moveFromTile || isSelectedPiece);
+        const isInteractable = isInteractiveTurn && (isValidTarget || !!moveFromTile || isSelectedPiece);
 
         rowCells.push(
           <View key={`${r}-${c}`} style={styles.cellShell}>
@@ -494,7 +510,7 @@ export const Board: React.FC<BoardProps> = ({
       {spawnCueAnchor && (
         <Pressable
           onPress={handleSpawnCuePress}
-          disabled={!isMyTurn}
+          disabled={!isInteractiveTurn}
           style={[
             styles.spawnCueTouchable,
             {
@@ -507,7 +523,7 @@ export const Board: React.FC<BoardProps> = ({
             style={[
               styles.spawnCue,
               spawnCueSelected && styles.spawnCueSelected,
-              !isMyTurn && styles.spawnCueReadonly,
+              !isInteractiveTurn && styles.spawnCueReadonly,
               cueAnimatedStyle,
             ]}
           >

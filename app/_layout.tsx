@@ -22,6 +22,7 @@ export default function Layout() {
         <Stack.Screen name="index" options={{ title: 'Royal Game of Ur', headerShown: false }} />
         <Stack.Screen name="(game)/lobby" options={{ title: 'Lobby' }} />
         <Stack.Screen name="match/[id]" options={{ title: 'Game Room', headerBackTitle: 'Lobby' }} />
+        <Stack.Screen name="tutorial/watch" options={{ title: 'Tutorial (Watch)' }} />
       </Stack>
     </View>
   );
