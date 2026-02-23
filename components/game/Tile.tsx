@@ -3,6 +3,7 @@ import { isRosette, isWarZone } from '@/logic/constants';
 import { PlayerColor } from '@/logic/types';
 import React, { useEffect, useMemo, useRef } from 'react';
 import { Image, StyleSheet, TouchableOpacity, View } from 'react-native';
+import Svg, { Circle, Ellipse, G, Polygon } from 'react-native-svg';
 import Animated, {
   Easing,
   cancelAnimation,
@@ -17,6 +18,7 @@ import { Piece } from './Piece';
 interface TileProps {
   row: number;
   col: number;
+  cellSize?: number;
   piece?: { id: string; color: PlayerColor };
   isValidTarget?: boolean;
   isSelectedPiece?: boolean;
@@ -25,9 +27,105 @@ interface TileProps {
   highlightMode?: 'subtle' | 'theatrical';
 }
 
+const RosetteArtwork: React.FC<{ size: number }> = ({ size }) => {
+  const cx = size / 2;
+  const cy = size / 2;
+  const petalRx = size * 0.18;
+  const petalRy = size * 0.1;
+  const petalOffset = size * 0.19;
+  const colors = ['#2AA89A', '#D4702A', '#2AA89A', '#D4702A', '#2AA89A', '#D4702A', '#2AA89A', '#D4702A'];
+  const angles = [0, 45, 90, 135, 180, 225, 270, 315];
+
+  return (
+    <Svg
+      width={size}
+      height={size}
+      viewBox={`0 0 ${size} ${size}`}
+      style={{ position: 'absolute' }}
+      pointerEvents="none"
+    >
+      <G>
+        {angles.map((angle, i) => {
+          const rad = (angle * Math.PI) / 180;
+          const ex = cx + Math.cos(rad) * petalOffset;
+          const ey = cy + Math.sin(rad) * petalOffset;
+          return (
+            <Ellipse
+              key={i}
+              cx={ex}
+              cy={ey}
+              rx={petalRx}
+              ry={petalRy}
+              fill={colors[i]}
+              opacity={0.88}
+              transform={`rotate(${angle}, ${ex}, ${ey})`}
+            />
+          );
+        })}
+        <Circle cx={cx} cy={cy} r={size * 0.14} fill="#F2E8D5" stroke="#C8981E" strokeWidth={1.2} />
+        <Circle cx={cx} cy={cy} r={size * 0.05} fill="#1A1208" />
+        <Circle cx={cx} cy={cy} r={size * 0.42} fill="none" stroke="#C8981E" strokeWidth={1} opacity={0.7} />
+      </G>
+    </Svg>
+  );
+};
+
+const PipArtwork: React.FC<{ size: number }> = ({ size }) => {
+  const positions = [
+    { x: size * 0.33, y: size * 0.33 },
+    { x: size * 0.67, y: size * 0.33 },
+    { x: size * 0.33, y: size * 0.67 },
+    { x: size * 0.67, y: size * 0.67 },
+  ];
+
+  return (
+    <Svg
+      width={size}
+      height={size}
+      viewBox={`0 0 ${size} ${size}`}
+      style={{ position: 'absolute' }}
+      pointerEvents="none"
+    >
+      {positions.map((pos, i) => (
+        <Circle key={i} cx={pos.x} cy={pos.y} r={size * 0.065} fill="rgba(90,60,30,0.52)" />
+      ))}
+    </Svg>
+  );
+};
+
+const WarArtwork: React.FC<{ size: number }> = ({ size }) => {
+  const half = size / 2;
+  const d = size * 0.13;
+  const diamonds = [
+    { cx: half * 0.6, cy: half * 0.6 },
+    { cx: half * 1.4, cy: half * 0.6 },
+    { cx: half * 0.6, cy: half * 1.4 },
+    { cx: half * 1.4, cy: half * 1.4 },
+  ];
+
+  return (
+    <Svg
+      width={size}
+      height={size}
+      viewBox={`0 0 ${size} ${size}`}
+      style={{ position: 'absolute' }}
+      pointerEvents="none"
+    >
+      {diamonds.map((pos, i) => (
+        <Polygon
+          key={i}
+          points={`${pos.cx},${pos.cy - d} ${pos.cx + d},${pos.cy} ${pos.cx},${pos.cy + d} ${pos.cx - d},${pos.cy}`}
+          fill="rgba(60,30,10,0.38)"
+        />
+      ))}
+    </Svg>
+  );
+};
+
 export const Tile: React.FC<TileProps> = ({
   row,
   col,
+  cellSize = 44,
   piece,
   isValidTarget = false,
   isSelectedPiece = false,
@@ -45,6 +143,7 @@ export const Tile: React.FC<TileProps> = ({
 
   const tileSeed = useMemo(() => (row * 13 + col * 7) % 5, [col, row]);
   const toneOffset = tileSeed * 4;
+  const cellRenderedSize = cellSize;
 
   useEffect(() => {
     if (isValidTarget) {
@@ -134,10 +233,10 @@ export const Tile: React.FC<TileProps> = ({
   }));
 
   const baseBackground = rosette
-    ? `rgb(${168 + toneOffset}, ${116 + Math.floor(toneOffset / 2)}, ${58 + Math.floor(toneOffset / 3)})`
+    ? `rgb(${178 + toneOffset}, ${122 + Math.floor(toneOffset / 2)}, ${52 + Math.floor(toneOffset / 3)})`
     : war
-      ? `rgb(${198 + toneOffset}, ${162 + Math.floor(toneOffset / 2)}, ${120 + Math.floor(toneOffset / 3)})`
-      : `rgb(${206 + toneOffset}, ${178 + Math.floor(toneOffset / 2)}, ${145 + Math.floor(toneOffset / 3)})`;
+      ? `rgb(${168 + toneOffset}, ${110 + Math.floor(toneOffset / 2)}, ${52 + Math.floor(toneOffset / 3)})`
+      : `rgb(${192 + toneOffset}, ${152 + Math.floor(toneOffset / 2)}, ${88 + Math.floor(toneOffset / 3)})`;
   const borderColor = rosette ? 'rgba(255, 219, 144, 0.65)' : 'rgba(98, 62, 36, 0.46)';
 
   return (
@@ -157,7 +256,9 @@ export const Tile: React.FC<TileProps> = ({
       ]}
     >
       <Image source={urTextures.wood} resizeMode="repeat" style={styles.tileTexture} />
-      {rosette && <Image source={urTextures.rosette} resizeMode="repeat" style={styles.rosettePattern} />}
+      {rosette && <RosetteArtwork size={cellRenderedSize} />}
+      {!rosette && war && <WarArtwork size={cellRenderedSize} />}
+      {!rosette && !war && <PipArtwork size={cellRenderedSize} />}
 
       <View style={[styles.innerInset, rosette && styles.rosetteInset]} />
       <View style={styles.edgeHighlight} />
@@ -167,14 +268,6 @@ export const Tile: React.FC<TileProps> = ({
       {isValidTarget && <Animated.View style={[styles.validRing, pulseStyle]} />}
       {rosette && <Animated.View style={[styles.rosetteGlow, rosetteGlowStyle]} />}
       {rosette && <Animated.View style={[styles.rosetteBurst, rosetteBurstStyle]} />}
-
-      {rosette && !piece && (
-        <View style={styles.rosetteGlyphWrap}>
-          <View style={styles.rosetteGlyphDiamond} />
-          <View style={[styles.rosetteGlyphDiamond, styles.rosetteGlyphDiamondAlt]} />
-          <View style={styles.rosetteGlyphCore} />
-        </View>
-      )}
 
       {isValidTarget && !piece && <View style={styles.validDot} />}
 
@@ -207,8 +300,8 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   selectedTile: {
-    borderColor: 'rgba(111, 184, 255, 0.8)',
-    shadowColor: urTheme.colors.glow,
+    borderColor: 'rgba(240, 192, 64, 0.84)',
+    shadowColor: urTheme.colors.goldGlow,
     shadowOpacity: 0.4,
     shadowRadius: 8,
     elevation: 7,
@@ -216,10 +309,6 @@ const styles = StyleSheet.create({
   tileTexture: {
     ...StyleSheet.absoluteFillObject,
     opacity: 0.22,
-  },
-  rosettePattern: {
-    ...StyleSheet.absoluteFillObject,
-    opacity: 0.23,
   },
   innerInset: {
     ...StyleSheet.absoluteFillObject,
@@ -254,7 +343,7 @@ const styles = StyleSheet.create({
     height: '78%',
     borderRadius: urTheme.radii.pill,
     borderWidth: 2.2,
-    borderColor: 'rgba(238, 192, 98, 0.95)',
+    borderColor: 'rgba(240, 192, 64, 0.98)',
   },
   selectedRing: {
     position: 'absolute',
@@ -262,8 +351,8 @@ const styles = StyleSheet.create({
     height: '88%',
     borderRadius: urTheme.radii.pill,
     borderWidth: 1.7,
-    borderColor: 'rgba(111, 184, 255, 0.95)',
-    backgroundColor: 'rgba(111, 184, 255, 0.14)',
+    borderColor: 'rgba(240, 192, 64, 0.92)',
+    backgroundColor: 'rgba(240, 192, 64, 0.12)',
   },
   rosetteGlow: {
     position: 'absolute',
@@ -279,31 +368,6 @@ const styles = StyleSheet.create({
     borderRadius: urTheme.radii.pill,
     borderWidth: 2,
     borderColor: 'rgba(255, 239, 196, 0.92)',
-  },
-  rosetteGlyphWrap: {
-    width: 24,
-    height: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  rosetteGlyphDiamond: {
-    position: 'absolute',
-    width: 20,
-    height: 20,
-    borderWidth: 2,
-    borderColor: 'rgba(255, 224, 173, 0.8)',
-    transform: [{ rotate: '45deg' }],
-  },
-  rosetteGlyphDiamondAlt: {
-    width: 12,
-    height: 12,
-    borderWidth: 1.4,
-  },
-  rosetteGlyphCore: {
-    width: 7,
-    height: 7,
-    borderRadius: urTheme.radii.pill,
-    backgroundColor: 'rgba(255, 239, 206, 0.82)',
   },
   validDot: {
     width: 14,
