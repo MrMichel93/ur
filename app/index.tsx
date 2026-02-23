@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/Button';
+import { HowToPlayModal } from '@/components/HowToPlayModal';
 import { urTheme, urTextures, urTypography } from '@/constants/urTheme';
 import { useRouter } from 'expo-router';
 import React from 'react';
@@ -6,6 +7,7 @@ import { Image, StyleSheet, Text, View } from 'react-native';
 
 export default function Home() {
   const router = useRouter();
+  const [showHowToPlay, setShowHowToPlay] = React.useState(false);
 
   return (
     <View style={styles.screen}>
@@ -29,8 +31,11 @@ export default function Home() {
         <View style={styles.buttonStack}>
           <Button title="Play Local vs Bot" onPress={() => router.push('/(game)/lobby?mode=bot')} />
           <Button title="Online Multiplayer" variant="outline" onPress={() => router.push('/(game)/lobby?mode=online')} />
+          <Button title="How to play" variant="secondary" onPress={() => setShowHowToPlay(true)} />
         </View>
       </View>
+
+      <HowToPlayModal visible={showHowToPlay} onClose={() => setShowHowToPlay(false)} />
     </View>
   );
 }

@@ -2,6 +2,7 @@ import { Board } from '@/components/game/Board';
 import { Dice } from '@/components/game/Dice';
 import { EdgeScore } from '@/components/game/EdgeScore';
 import { GameStageHUD } from '@/components/game/GameStageHUD';
+import { HowToPlayModal } from '@/components/HowToPlayModal';
 import { PieceRail } from '@/components/game/PieceRail';
 import { Modal } from '@/components/ui/Modal';
 import { urTheme, urTextures, urTypography } from '@/constants/urTheme';
@@ -23,7 +24,7 @@ import {
 import { MatchData, MatchPresenceEvent, Socket } from '@heroiclabs/nakama-js';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useRef } from 'react';
-import { Image, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 
 export default function GameRoom() {
   const { id, offline } = useLocalSearchParams<{ id?: string | string[]; offline?: string | string[] }>();
@@ -69,6 +70,7 @@ export default function GameRoom() {
   const winModalMessage = didPlayerWin ? 'The royal path is yours.' : 'The opponent seized the final lane.';
 
   const [showWinModal, setShowWinModal] = React.useState(false);
+  const [showHowToPlay, setShowHowToPlay] = React.useState(false);
   const [rollingVisual, setRollingVisual] = React.useState(false);
   const [showScoreBanner, setShowScoreBanner] = React.useState(false);
   const rollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -377,7 +379,21 @@ export default function GameRoom() {
 
   return (
     <View style={styles.screen}>
-      <Stack.Screen options={{ title: `Game #${id}` }} />
+      <Stack.Screen
+        options={{
+          title: `Game #${id}`,
+          headerRight: () => (
+            <Pressable
+              onPress={() => setShowHowToPlay(true)}
+              accessibilityRole="button"
+              accessibilityLabel="Open how to play instructions"
+              style={({ pressed }) => [styles.headerHelpButton, pressed && styles.headerHelpButtonPressed]}
+            >
+              <Text style={styles.headerHelpLabel}>Help</Text>
+            </Pressable>
+          ),
+        }}
+      />
 
       <Image source={urTextures.woodDark} resizeMode="repeat" style={styles.tableGrainPrimary} />
       <Image source={urTextures.wood} resizeMode="repeat" style={styles.tableGrainSecondary} />
@@ -458,6 +474,8 @@ export default function GameRoom() {
         actionLabel="Return to Menu"
         onAction={handleExit}
       />
+
+      <HowToPlayModal visible={showHowToPlay} onClose={() => setShowHowToPlay(false)} />
     </View>
   );
 }
@@ -526,6 +544,26 @@ const styles = StyleSheet.create({
     width: '100%',
     flexDirection: 'row',
     justifyContent: 'space-between',
+  },
+  headerHelpButton: {
+    minHeight: 34,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: urTheme.radii.pill,
+    borderWidth: 1,
+    borderColor: 'rgba(217, 164, 65, 0.78)',
+    backgroundColor: 'rgba(13, 15, 18, 0.38)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerHelpButtonPressed: {
+    opacity: 0.8,
+  },
+  headerHelpLabel: {
+    ...urTypography.label,
+    color: urTheme.colors.parchment,
+    fontSize: 11,
+    letterSpacing: 0.8,
   },
   boardCard: {
     width: '100%',
