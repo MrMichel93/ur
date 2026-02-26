@@ -70,13 +70,13 @@ export const PieceRail: React.FC<PieceRailProps> = ({
 
         <View style={styles.pieceStack}>
           {Array.from({ length: shownCount }).map((_, index) => (
-            <View key={`piece-${index}`} style={[styles.stackPiece, { marginLeft: index === 0 ? 0 : -urTheme.reserve.tokenSpacing }]}>
+            <View key={`piece-${index}`} style={[styles.stackPiece, { marginLeft: index === 0 ? 0 : -12 }]}>
               <Piece color={color} size="sm" variant={resolvedVariant} />
             </View>
           ))}
 
           {Array.from({ length: emptyCount }).map((_, index) => (
-            <View key={`empty-${index}`} style={[styles.emptyDot, { marginLeft: shownCount + index === 0 ? 0 : -urTheme.reserve.tokenSpacing }]} />
+            <View key={`empty-${index}`} style={[styles.emptyDot, { marginLeft: shownCount + index === 0 ? 0 : -urTheme.layout.rail.overlap + 2 }]} />
           ))}
         </View>
       </View>
@@ -87,7 +87,7 @@ export const PieceRail: React.FC<PieceRailProps> = ({
 const styles = StyleSheet.create({
   wrap: {
     width: '100%',
-    gap: urTheme.spacing.xs,
+    gap: 8,
   },
   label: {
     ...urTypography.label,
@@ -96,14 +96,14 @@ const styles = StyleSheet.create({
     textAlign: 'left',
   },
   rail: {
-    minHeight: urTheme.reserve.barHeight,
-    borderRadius: urTheme.reserve.radius,
+    minHeight: 76,
+    borderRadius: urTheme.radii.pill,
     borderWidth: 1.2,
-    borderColor: urTheme.colors.inkBrown,
-    backgroundColor: urTheme.colors.boardDark,
+    borderColor: 'rgba(200, 152, 30, 0.75)',
+    backgroundColor: 'rgba(30, 18, 10, 0.84)',
     overflow: 'hidden',
     justifyContent: 'center',
-    paddingHorizontal: urTheme.spacing.sm,
+    paddingHorizontal: 12,
     shadowColor: '#000',
     shadowOpacity: 0.24,
     shadowRadius: 7,
@@ -112,7 +112,7 @@ const styles = StyleSheet.create({
   },
   railTexture: {
     ...StyleSheet.absoluteFillObject,
-    opacity: urTheme.hud.textureOpacity,
+    opacity: 0.28,
   },
   darkRailTexture: {
     opacity: 0.16,
@@ -123,7 +123,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: '42%',
-    backgroundColor: 'rgba(255,225,170,0.08)',
+    backgroundColor: 'rgba(220, 160, 60, 0.10)',
   },
   railBottomShade: {
     position: 'absolute',
@@ -131,18 +131,18 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     height: '34%',
-    backgroundColor: 'rgba(0,0,0,0.2)',
+    backgroundColor: 'rgba(0, 0, 0, 0.12)',
   },
   activeGlow: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.18)',
+    backgroundColor: 'rgba(200, 152, 30, 0.16)',
   },
   innerRail: {
     ...StyleSheet.absoluteFillObject,
-    margin: 4,
-    borderRadius: urTheme.reserve.radius,
+    margin: 5,
+    borderRadius: urTheme.radii.pill,
     borderWidth: 1,
-    borderColor: 'rgba(243,217,169,0.26)',
+    borderColor: 'rgba(248, 231, 196, 0.24)',
   },
   pieceStack: {
     flexDirection: 'row',
@@ -155,7 +155,7 @@ const styles = StyleSheet.create({
   emptyDot: {
     width: 24,
     height: 24,
-    borderRadius: urTheme.reserve.radius,
+    borderRadius: urTheme.radii.pill,
     borderWidth: 1,
     borderColor: 'rgba(200, 152, 30, 0.42)',
     backgroundColor: 'rgba(26, 18, 8, 0.62)',

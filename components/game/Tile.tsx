@@ -1,7 +1,7 @@
 import { urTheme, urTextures } from '@/constants/urTheme';
 import { isRosette, isWarZone } from '@/logic/constants';
 import { PlayerColor } from '@/logic/types';
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { Image, StyleSheet, TouchableOpacity, View } from 'react-native';
 import Svg, { Circle, Ellipse, G, Polygon } from 'react-native-svg';
 import Animated, {
@@ -33,7 +33,7 @@ const RosetteArtwork: React.FC<{ size: number }> = ({ size }) => {
   const petalRx = size * 0.18;
   const petalRy = size * 0.1;
   const petalOffset = size * 0.19;
-  const colors = [urTheme.colors.turquoiseAccent, urTheme.colors.orangeAccent, urTheme.colors.turquoiseAccent, urTheme.colors.orangeAccent, urTheme.colors.turquoiseAccent, urTheme.colors.orangeAccent, urTheme.colors.turquoiseAccent, urTheme.colors.orangeAccent];
+  const colors = ['#2AA89A', '#D4702A', '#2AA89A', '#D4702A', '#2AA89A', '#D4702A', '#2AA89A', '#D4702A'];
   const angles = [0, 45, 90, 135, 180, 225, 270, 315];
 
   return (
@@ -62,9 +62,9 @@ const RosetteArtwork: React.FC<{ size: number }> = ({ size }) => {
             />
           );
         })}
-        <Circle cx={cx} cy={cy} r={size * 0.14} fill={urTheme.colors.stoneLight} stroke={urTheme.colors.goldAccent} strokeWidth={1.2} />
-        <Circle cx={cx} cy={cy} r={size * 0.05} fill={urTheme.colors.inkBrown} />
-        <Circle cx={cx} cy={cy} r={size * 0.42} fill="none" stroke={urTheme.colors.goldAccent} strokeWidth={1} opacity={0.7} />
+        <Circle cx={cx} cy={cy} r={size * 0.14} fill="#F2E8D5" stroke="#C8981E" strokeWidth={1.2} />
+        <Circle cx={cx} cy={cy} r={size * 0.05} fill="#1A1208" />
+        <Circle cx={cx} cy={cy} r={size * 0.42} fill="none" stroke="#C8981E" strokeWidth={1} opacity={0.7} />
       </G>
     </Svg>
   );
@@ -141,8 +141,10 @@ export const Tile: React.FC<TileProps> = ({
   const rosetteBurst = useSharedValue(0);
   const prevPieceId = useRef<string | null>(piece?.id ?? null);
 
+  const tileSeed = useMemo(() => (row * 13 + col * 7) % 5, [col, row]);
+  const toneOffset = tileSeed * 4;
   const cellRenderedSize = cellSize;
-  const tileRadius = urTheme.board.tileRadius;
+  const tileRadius = Math.max(3, Math.round(cellRenderedSize * 0.06));
   const innerInsetMargin = Math.max(1.5, Math.round(cellRenderedSize * 0.03));
 
   useEffect(() => {
@@ -233,11 +235,11 @@ export const Tile: React.FC<TileProps> = ({
   }));
 
   const baseBackground = rosette
-    ? urTheme.colors.stoneMid
+    ? `rgb(${176 + toneOffset}, ${130 + Math.floor(toneOffset / 2)}, ${74 + Math.floor(toneOffset / 3)})`
     : war
-      ? urTheme.colors.boardMid
-      : urTheme.colors.stoneLight;
-  const borderColor = rosette ? urTheme.colors.inkBrown : urTheme.colors.boardDark;
+      ? `rgb(${154 + toneOffset}, ${106 + Math.floor(toneOffset / 2)}, ${66 + Math.floor(toneOffset / 3)})`
+      : `rgb(${210 + toneOffset}, ${187 + Math.floor(toneOffset / 2)}, ${147 + Math.floor(toneOffset / 3)})`;
+  const borderColor = rosette ? 'rgba(246, 214, 151, 0.38)' : 'rgba(90, 63, 39, 0.28)';
 
   return (
     <TouchableOpacity
@@ -249,7 +251,7 @@ export const Tile: React.FC<TileProps> = ({
         {
           backgroundColor: baseBackground,
           borderColor,
-          borderWidth: urTheme.board.frameInnerBorder,
+          borderWidth: rosette ? 1.8 : 1.1,
           borderRadius: tileRadius,
         },
         isValidTarget && styles.validTile,
@@ -306,11 +308,11 @@ export const Tile: React.FC<TileProps> = ({
 const styles = StyleSheet.create({
   tile: {
     flex: 1,
-    borderRadius: urTheme.board.tileRadius,
+    borderRadius: urTheme.radii.sm,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
-    shadowColor: urTheme.colors.shadowDark,
+    shadowColor: '#140B06',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.16,
     shadowRadius: 2,
@@ -350,7 +352,7 @@ const styles = StyleSheet.create({
     margin: 2.4,
     borderRadius: urTheme.radii.xs,
     borderWidth: 1,
-    borderColor: 'rgba(74,46,28,0.35)',
+    borderColor: 'rgba(64, 43, 28, 0.28)',
     backgroundColor: 'rgba(18, 10, 6, 0.045)',
   },
   rosetteInset: {
@@ -402,7 +404,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     width: '84%',
     height: '84%',
-    borderRadius: urTheme.board.tileRadius,
+    borderRadius: urTheme.radii.xs + 1,
     borderWidth: 2,
     borderColor: 'rgba(236, 204, 126, 0.94)',
     backgroundColor: 'rgba(135, 210, 126, 0.08)',
@@ -411,7 +413,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     width: '90%',
     height: '90%',
-    borderRadius: urTheme.board.tileRadius,
+    borderRadius: urTheme.radii.sm,
     borderWidth: 1.8,
     borderColor: 'rgba(245, 214, 143, 0.92)',
     backgroundColor: 'rgba(242, 194, 84, 0.08)',
@@ -420,7 +422,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     width: '82%',
     height: '82%',
-    borderRadius: urTheme.board.tileRadius,
+    borderRadius: urTheme.radii.sm,
     backgroundColor: 'rgba(255, 210, 120, 0.12)',
   },
   rosetteBurst: {
