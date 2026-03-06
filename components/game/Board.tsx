@@ -47,6 +47,8 @@ const SCORE_CUE_MIN_SIZE = 44;
 const SCORE_CUE_MAX_SIZE = 58;
 const MIN_TILE_SHELL_PADDING = 2;
 const BOARD_IMAGE_HORIZONTAL_STRETCH = 1.095;
+const BOARD_IMAGE_WIDTH = 1200;
+const BOARD_IMAGE_HEIGHT = 900;
 
 export const Board: React.FC<BoardProps> = ({
   showRailHints = false,
@@ -570,10 +572,10 @@ export const Board: React.FC<BoardProps> = ({
         pointerEvents="none"
         style={{
           position: 'absolute',
-          left: 0,
+          left: 20,
           top: 0,
-          width: boardWidth,
-          height: frameHeight,
+          width: BOARD_IMAGE_WIDTH,
+          height: BOARD_IMAGE_HEIGHT,
           alignItems: 'center',
           justifyContent: 'center',
         }}
@@ -582,8 +584,8 @@ export const Board: React.FC<BoardProps> = ({
           source={boardImage}
           resizeMode="stretch"
           style={{
-            width: isVertical ? boardWidth : frameHeight,
-            height: isVertical ? frameHeight : boardWidth,
+            width: BOARD_IMAGE_WIDTH,
+            height: BOARD_IMAGE_HEIGHT,
             transform: isVertical ? [] : [{ rotate: '-90deg' }, { scaleX: BOARD_IMAGE_HORIZONTAL_STRETCH }],
           }}
         />
