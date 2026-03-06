@@ -39,6 +39,34 @@ interface Point {
   y: number;
 }
 
+interface BoardRenderLayout {
+  cellSize: number;
+  gridWidth: number;
+  gridHeight: number;
+  frameWidth: number;
+  frameHeight: number;
+  innerGridLeft: number;
+  innerGridTop: number;
+}
+
+interface BoardArtImageLayout {
+  width: number;
+  height: number;
+  left: number;
+  top: number;
+  rotate?: '-90deg';
+}
+
+interface BoardArtAlignmentConfig {
+  offsetX: number;
+  offsetY: number;
+  scale: number;
+  insetTop: number;
+  insetRight: number;
+  insetBottom: number;
+  insetLeft: number;
+}
+
 const FRAME_PADDING = urTheme.spacing.sm;
 const INNER_PADDING = urTheme.spacing.xs;
 const GRID_GAP = 0;
@@ -46,7 +74,18 @@ const CUE_SIZE = 48;
 const SCORE_CUE_MIN_SIZE = 44;
 const SCORE_CUE_MAX_SIZE = 58;
 const MIN_TILE_SHELL_PADDING = 2;
-const BOARD_IMAGE_HORIZONTAL_STRETCH = 1.095;
+const SHOW_BOARD_ALIGNMENT_DEBUG = false;
+
+// Gameplay geometry is canonical; adjust this object if the PNG asset changes.
+const BOARD_ART_ALIGNMENT: BoardArtAlignmentConfig = {
+  offsetX: 0,
+  offsetY: 0,
+  scale: 1,
+  insetTop: 0.024,
+  insetRight: 0.385,
+  insetBottom: 0.002,
+  insetLeft: 0.36,
+};
 
 export const Board: React.FC<BoardProps> = ({
   showRailHints = false,
@@ -83,20 +122,35 @@ export const Board: React.FC<BoardProps> = ({
     [boardScale, width],
   );
 
-  const cellSize = useMemo(() => {
-    const gridWidth = boardWidth - FRAME_PADDING * 2 - INNER_PADDING * 2;
-    return gridWidth / displayCols;
-  }, [boardWidth, displayCols]);
+  // Gameplay coordinates derive from this layout and remain the source of truth.
+  const boardLayout = useMemo<BoardRenderLayout>(() => {
+    const frameWidth = boardWidth;
+    const innerGridLeft = FRAME_PADDING + INNER_PADDING;
+    const innerGridTop = FRAME_PADDING + INNER_PADDING;
+    const gridWidth = frameWidth - FRAME_PADDING * 2 - INNER_PADDING * 2;
+    const cellSize = gridWidth / displayCols;
+    const gridHeight = cellSize * displayRows + GRID_GAP * Math.max(0, displayRows - 1);
+    const frameHeight = FRAME_PADDING * 2 + INNER_PADDING * 2 + gridHeight;
+
+    return {
+      cellSize,
+      gridWidth,
+      gridHeight,
+      frameWidth,
+      frameHeight,
+      innerGridLeft,
+      innerGridTop,
+    };
+  }, [boardWidth, displayCols, displayRows]);
+
   const tileShellPadding = useMemo(
-    () => Math.max(MIN_TILE_SHELL_PADDING, Math.round(cellSize * 0.04)),
-    [cellSize],
+    () => Math.max(MIN_TILE_SHELL_PADDING, Math.round(boardLayout.cellSize * 0.04)),
+    [boardLayout.cellSize],
   );
   const renderedTileSize = useMemo(
-    () => Math.max(18, Math.round(cellSize - tileShellPadding * 2)),
-    [cellSize, tileShellPadding],
+    () => Math.max(18, Math.round(boardLayout.cellSize - tileShellPadding * 2)),
+    [boardLayout.cellSize, tileShellPadding],
   );
-  const gridHeight = cellSize * displayRows + GRID_GAP * Math.max(0, displayRows - 1);
-  const frameHeight = FRAME_PADDING * 2 + INNER_PADDING * 2 + gridHeight;
 
   const mapLogicalToDisplayCoord = (r: number, c: number): { row: number; col: number } => {
     if (!isVertical) {
@@ -120,6 +174,8 @@ export const Board: React.FC<BoardProps> = ({
     };
   };
 
+  const isGapCell = (r: number, c: number) => (r === 0 || r === 2) && (c === 4 || c === 5);
+
   const mapIndexToCoord = (color: 'light' | 'dark', index: number, r: number, c: number) => {
     const path = color === 'light' ? PATH_LIGHT : PATH_DARK;
     const coord = path[index];
@@ -130,11 +186,19 @@ export const Board: React.FC<BoardProps> = ({
   const getCellCenter = (r: number, c: number): Point => ({
     x: (() => {
       const displayCoord = mapLogicalToDisplayCoord(r, c);
-      return FRAME_PADDING + INNER_PADDING + displayCoord.col * cellSize + cellSize / 2;
+      return (
+        boardLayout.innerGridLeft +
+        displayCoord.col * (boardLayout.cellSize + GRID_GAP) +
+        boardLayout.cellSize / 2
+      );
     })(),
     y: (() => {
       const displayCoord = mapLogicalToDisplayCoord(r, c);
-      return FRAME_PADDING + INNER_PADDING + displayCoord.row * (cellSize + GRID_GAP) + cellSize / 2;
+      return (
+        boardLayout.innerGridTop +
+        displayCoord.row * (boardLayout.cellSize + GRID_GAP) +
+        boardLayout.cellSize / 2
+      );
     })(),
   });
 
@@ -154,7 +218,7 @@ export const Board: React.FC<BoardProps> = ({
 
     if (index === -1) {
       const startCenter = getCellCenter(path[0].row, path[0].col);
-      const reserveOffset = projectLogicalOffset(cellSize * 0.58, 0);
+      const reserveOffset = projectLogicalOffset(boardLayout.cellSize * 0.58, 0);
       return {
         x: startCenter.x + reserveOffset.x,
         y: startCenter.y + reserveOffset.y,
@@ -163,7 +227,7 @@ export const Board: React.FC<BoardProps> = ({
 
     if (index === PATH_LENGTH) {
       const finalCenter = getCellCenter(path[path.length - 1].row, path[path.length - 1].col);
-      const finishOffset = projectLogicalOffset(cellSize * 0.95, 0);
+      const finishOffset = projectLogicalOffset(boardLayout.cellSize * 0.95, 0);
       return {
         x: finalCenter.x + finishOffset.x,
         y: finalCenter.y + finishOffset.y,
@@ -208,13 +272,15 @@ export const Board: React.FC<BoardProps> = ({
 
   const spawnCueColor: 'light' | 'dark' = gameState.currentTurn;
   const hasScoringMove = scoringMoves.length > 0;
-  const scoreCueSize = Math.round(Math.min(Math.max(cellSize * 0.92, SCORE_CUE_MIN_SIZE), SCORE_CUE_MAX_SIZE));
+  const scoreCueSize = Math.round(
+    Math.min(Math.max(boardLayout.cellSize * 0.92, SCORE_CUE_MIN_SIZE), SCORE_CUE_MAX_SIZE),
+  );
 
   const spawnCueAnchor = spawnMove
     ? (() => {
       const start = spawnCueColor === 'light' ? PATH_LIGHT[0] : PATH_DARK[0];
       const startCenter = getCellCenter(start.row, start.col);
-      const spawnOffset = projectLogicalOffset(cellSize * 0.58, 0);
+      const spawnOffset = projectLogicalOffset(boardLayout.cellSize * 0.58, 0);
       return {
         x: startCenter.x + spawnOffset.x,
         y: startCenter.y + spawnOffset.y,
@@ -295,6 +361,74 @@ export const Board: React.FC<BoardProps> = ({
 
     return segments;
   }, [previewPoints]);
+
+  const boardArtLayout = useMemo<BoardArtImageLayout>(() => {
+    // Fit artwork from gameplay grid measurements so visuals follow interaction geometry.
+    const cropWidthRatio = Math.max(0.01, 1 - BOARD_ART_ALIGNMENT.insetLeft - BOARD_ART_ALIGNMENT.insetRight);
+    const cropHeightRatio = Math.max(0.01, 1 - BOARD_ART_ALIGNMENT.insetTop - BOARD_ART_ALIGNMENT.insetBottom);
+    const baseWidth = boardLayout.gridWidth / cropWidthRatio;
+    const baseHeight = boardLayout.gridHeight / cropHeightRatio;
+    const scaledWidth = baseWidth * BOARD_ART_ALIGNMENT.scale;
+    const scaledHeight = baseHeight * BOARD_ART_ALIGNMENT.scale;
+    const baseLeft = boardLayout.innerGridLeft - BOARD_ART_ALIGNMENT.insetLeft * baseWidth;
+    const baseTop = boardLayout.innerGridTop - BOARD_ART_ALIGNMENT.insetTop * baseHeight;
+    const centeredLeft = baseLeft - (scaledWidth - baseWidth) / 2 + BOARD_ART_ALIGNMENT.offsetX;
+    const centeredTop = baseTop - (scaledHeight - baseHeight) / 2 + BOARD_ART_ALIGNMENT.offsetY;
+
+    if (isVertical) {
+      return {
+        width: scaledWidth,
+        height: scaledHeight,
+        left: centeredLeft,
+        top: centeredTop,
+      };
+    }
+
+    const horizontalBaseWidth = boardLayout.frameHeight;
+    const horizontalBaseHeight = boardLayout.frameWidth;
+    const horizontalWidth = horizontalBaseWidth * BOARD_ART_ALIGNMENT.scale;
+    const horizontalHeight = horizontalBaseHeight * BOARD_ART_ALIGNMENT.scale;
+
+    return {
+      width: horizontalWidth,
+      height: horizontalHeight,
+      left:
+        (boardLayout.frameWidth - horizontalBaseWidth) / 2 -
+        (horizontalWidth - horizontalBaseWidth) / 2 +
+        BOARD_ART_ALIGNMENT.offsetX,
+      top:
+        (boardLayout.frameHeight - horizontalBaseHeight) / 2 -
+        (horizontalHeight - horizontalBaseHeight) / 2 +
+        BOARD_ART_ALIGNMENT.offsetY,
+      rotate: '-90deg',
+    };
+  }, [boardLayout, isVertical]);
+
+  const debugPlayableCells = (() => {
+    const cells: { key: string; left: number; top: number; centerX: number; centerY: number }[] = [];
+
+    for (let displayRow = 0; displayRow < displayRows; displayRow += 1) {
+      for (let displayCol = 0; displayCol < displayCols; displayCol += 1) {
+        const { row: r, col: c } = mapDisplayToLogicalCoord(displayRow, displayCol);
+        if (isGapCell(r, c)) {
+          continue;
+        }
+
+        const left = boardLayout.innerGridLeft + displayCol * (boardLayout.cellSize + GRID_GAP);
+        const top = boardLayout.innerGridTop + displayRow * (boardLayout.cellSize + GRID_GAP);
+
+        cells.push({
+          key: `${displayRow}-${displayCol}`,
+          left,
+          top,
+          centerX: left + boardLayout.cellSize / 2,
+          centerY: top + boardLayout.cellSize / 2,
+        });
+      }
+    }
+
+    return cells;
+  })();
 
   useEffect(() => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -490,7 +624,7 @@ export const Board: React.FC<BoardProps> = ({
 
       for (let displayCol = 0; displayCol < displayCols; displayCol += 1) {
         const { row: r, col: c } = mapDisplayToLogicalCoord(displayRow, displayCol);
-        const isGap = (r === 0 || r === 2) && (c === 4 || c === 5);
+        const isGap = isGapCell(r, c);
         if (isGap) {
           rowCells.push(
             <View
@@ -564,34 +698,76 @@ export const Board: React.FC<BoardProps> = ({
 
   return (
     <View
-      style={[styles.frame, { width: boardWidth, height: frameHeight }]}
+      style={[styles.frame, { width: boardLayout.frameWidth, height: boardLayout.frameHeight }]}
     >
-      <View
-        pointerEvents="none"
-        style={{
-          position: 'absolute',
-          left: 0,
-          top: 0,
-          width: boardWidth,
-          height: frameHeight,
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
+      <View pointerEvents="none" style={styles.boardArtLayer}>
         <Image
           source={boardImage}
           resizeMode="stretch"
-          style={{
-            width: isVertical ? boardWidth : frameHeight,
-            height: isVertical ? frameHeight : boardWidth,
-            transform: isVertical ? [] : [{ rotate: '-90deg' }, { scaleX: BOARD_IMAGE_HORIZONTAL_STRETCH }],
-          }}
+          style={[
+            styles.boardArtImage,
+            {
+              width: boardArtLayout.width,
+              height: boardArtLayout.height,
+              left: boardArtLayout.left,
+              top: boardArtLayout.top,
+              transform: boardArtLayout.rotate ? [{ rotate: boardArtLayout.rotate }] : undefined,
+            },
+          ]}
         />
       </View>
 
+      {SHOW_BOARD_ALIGNMENT_DEBUG && (
+        <View pointerEvents="none" style={styles.boardDebugOverlay}>
+          <View
+            style={[
+              styles.debugFrameBounds,
+              { width: boardLayout.frameWidth, height: boardLayout.frameHeight },
+            ]}
+          />
+          <View
+            style={[
+              styles.debugGridBounds,
+              {
+                left: boardLayout.innerGridLeft,
+                top: boardLayout.innerGridTop,
+                width: boardLayout.gridWidth,
+                height: boardLayout.gridHeight,
+              },
+            ]}
+          />
+          {debugPlayableCells.map((cell) => (
+            <React.Fragment key={`debug-cell-${cell.key}`}>
+              <View
+                style={[
+                  styles.debugCellBounds,
+                  {
+                    left: cell.left,
+                    top: cell.top,
+                    width: boardLayout.cellSize,
+                    height: boardLayout.cellSize,
+                  },
+                ]}
+              />
+              <View
+                style={[
+                  styles.debugCellCenter,
+                  {
+                    left: cell.centerX - 2,
+                    top: cell.centerY - 2,
+                  },
+                ]}
+              />
+            </React.Fragment>
+          ))}
+        </View>
+      )}
+
       <View style={styles.innerFrame}>
         <View style={styles.tileLayer}>
-          <View style={styles.gridWrap}>{renderGrid()}</View>
+          <View style={[styles.gridWrap, { width: boardLayout.gridWidth, height: boardLayout.gridHeight }]}>
+            {renderGrid()}
+          </View>
         </View>
       </View>
 
@@ -724,6 +900,41 @@ const styles = StyleSheet.create({
     shadowRadius: 14,
     shadowOffset: { width: 0, height: 8 },
     elevation: 4,
+  },
+  boardArtLayer: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: urTheme.radii.lg + 6,
+    overflow: 'hidden',
+  },
+  boardArtImage: {
+    position: 'absolute',
+  },
+  boardDebugOverlay: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  debugFrameBounds: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 82, 82, 0.9)',
+  },
+  debugGridBounds: {
+    position: 'absolute',
+    borderWidth: 1,
+    borderColor: 'rgba(78, 255, 180, 0.95)',
+  },
+  debugCellBounds: {
+    position: 'absolute',
+    borderWidth: 1,
+    borderColor: 'rgba(103, 177, 255, 0.78)',
+  },
+  debugCellCenter: {
+    position: 'absolute',
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255, 243, 167, 0.96)',
   },
   boardFrameLayer: {
     ...StyleSheet.absoluteFillObject,
