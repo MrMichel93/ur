@@ -384,7 +384,6 @@ export default function GameRoom() {
 
   const viewportHorizontalPadding = 0;
   const stageContentWidth = Math.min(Math.max(width - viewportHorizontalPadding * 2, 0), urTheme.layout.stage.maxWidth);
-  const boardBaseWidth = Math.min(width - urTheme.spacing.lg, urTheme.layout.boardMax);  
   const useSideColumns = width >= 980;
   const compactSupportPanels = width < 460;
   const boardClusterGap = useSideColumns ? urTheme.spacing.xs : urTheme.spacing.sm;
@@ -397,6 +396,8 @@ export default function GameRoom() {
         Math.min(urTheme.layout.boardMax, stageContentWidth - sideColumnWidth * 2 - boardClusterGap * 2),
       )
     : Math.max(224, Math.min(urTheme.layout.boardMax, stageContentWidth - 2));
+
+  const boardBaseWidth = boardWidthLimitByLayout;
   const boardFramePadding = urTheme.spacing.sm;
   const boardInnerPadding = urTheme.spacing.xs;
   const boardGridGap = Math.max(2, urTheme.spacing.xs - 2);
