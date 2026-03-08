@@ -70,7 +70,7 @@ interface BoardArtAlignmentConfig {
 const FRAME_PADDING = urTheme.spacing.sm;
 const INNER_PADDING = urTheme.spacing.xs;
 const GRID_GAP = 0;
-const CUE_SIZE = 48;
+const SPAWN_CUE_MIN_SIZE = 48;
 const SCORE_CUE_MIN_SIZE = 44;
 const SCORE_CUE_MAX_SIZE = 58;
 const MIN_TILE_SHELL_PADDING = 2;
@@ -107,6 +107,7 @@ export const Board: React.FC<BoardProps> = ({
   const storePlayerColor = useGameStore((state) => state.playerColor);
   const { width } = useWindowDimensions();
   const [selectedMove, setSelectedMove] = useState<MoveAction | null>(null);
+  const [hoveredMove, setHoveredMove] = useState<MoveAction | null>(null);
 
   const cuePulse = useSharedValue(0);
   const scoreCuePulse = useSharedValue(0);
@@ -158,6 +159,17 @@ export const Board: React.FC<BoardProps> = ({
   const boardPiecePixelSize = useMemo(
     () => Math.max(14, Math.round(renderedTileSize * BOARD_PIECE_TILE_COVERAGE)),
     [renderedTileSize],
+  );
+  const spawnCueSize = useMemo(
+    () => Math.max(SPAWN_CUE_MIN_SIZE, Math.round(boardPiecePixelSize * 1.08)),
+    [boardPiecePixelSize],
+  );
+  const spawnCueOffsetDistance = useMemo(
+    () =>
+      boardLayout.cellSize / 2 +
+      spawnCueSize / 2 +
+      Math.max(8, Math.round(boardLayout.cellSize * 0.08)),
+    [boardLayout.cellSize, spawnCueSize],
   );
 
   const mapLogicalToDisplayCoord = (r: number, c: number): { row: number; col: number } => {
@@ -226,7 +238,7 @@ export const Board: React.FC<BoardProps> = ({
 
     if (index === -1) {
       const startCenter = getCellCenter(path[0].row, path[0].col);
-      const reserveOffset = projectLogicalOffset(boardLayout.cellSize * 0.58, 0);
+      const reserveOffset = projectLogicalOffset(spawnCueOffsetDistance, 0);
       return {
         x: startCenter.x + reserveOffset.x,
         y: startCenter.y + reserveOffset.y,
@@ -288,7 +300,7 @@ export const Board: React.FC<BoardProps> = ({
     ? (() => {
       const start = spawnCueColor === 'light' ? PATH_LIGHT[0] : PATH_DARK[0];
       const startCenter = getCellCenter(start.row, start.col);
-      const spawnOffset = projectLogicalOffset(boardLayout.cellSize * 0.58, 0);
+      const spawnOffset = projectLogicalOffset(spawnCueOffsetDistance, 0);
       return {
         x: startCenter.x + spawnOffset.x,
         y: startCenter.y + spawnOffset.y,
@@ -305,31 +317,33 @@ export const Board: React.FC<BoardProps> = ({
       })()
       : null;
 
-  const previewPoints = (() => {
-    if (!selectedMove) return [] as Point[];
+  const previewMove = selectedMove ?? hoveredMove;
 
-    const color: 'light' | 'dark' = selectedMove.pieceId.startsWith('dark') ? 'dark' : 'light';
+  const previewPoints = (() => {
+    if (!previewMove) return [] as Point[];
+
+    const color: 'light' | 'dark' = previewMove.pieceId.startsWith('dark') ? 'dark' : 'light';
     const points: Point[] = [];
 
-    if (selectedMove.fromIndex === -1) {
+    if (previewMove.fromIndex === -1) {
       const reservePoint = coordForPathIndex(color, -1);
       if (reservePoint) {
         points.push(reservePoint);
       }
-      for (let index = 0; index <= Math.min(selectedMove.toIndex, PATH_LENGTH - 1); index += 1) {
+      for (let index = 0; index <= Math.min(previewMove.toIndex, PATH_LENGTH - 1); index += 1) {
         const point = coordForPathIndex(color, index);
         if (point) {
           points.push(point);
         }
       }
     } else {
-      const startPoint = coordForPathIndex(color, selectedMove.fromIndex);
+      const startPoint = coordForPathIndex(color, previewMove.fromIndex);
       if (startPoint) {
         points.push(startPoint);
       }
       for (
-        let index = selectedMove.fromIndex + 1;
-        index <= Math.min(selectedMove.toIndex, PATH_LENGTH - 1);
+        let index = previewMove.fromIndex + 1;
+        index <= Math.min(previewMove.toIndex, PATH_LENGTH - 1);
         index += 1
       ) {
         const point = coordForPathIndex(color, index);
@@ -339,7 +353,7 @@ export const Board: React.FC<BoardProps> = ({
       }
     }
 
-    if (selectedMove.toIndex === PATH_LENGTH) {
+    if (previewMove.toIndex === PATH_LENGTH) {
       const finishPoint = coordForPathIndex(color, PATH_LENGTH);
       if (finishPoint) {
         points.push(finishPoint);
@@ -477,7 +491,7 @@ export const Board: React.FC<BoardProps> = ({
   }, [hasScoringMove, isInteractiveTurn, scoreCuePulse]);
 
   useEffect(() => {
-    if (!selectedMove) {
+    if (!previewMove) {
       cancelAnimation(previewPulse);
       previewPulse.value = withTiming(0, { duration: urTheme.motion.duration.fast });
       return;
@@ -491,7 +505,7 @@ export const Board: React.FC<BoardProps> = ({
       -1,
       true,
     );
-  }, [previewPulse, selectedMove]);
+  }, [previewMove, previewPulse]);
 
   useEffect(() => {
     if (!selectedMove) return;
@@ -509,7 +523,28 @@ export const Board: React.FC<BoardProps> = ({
   }, [selectedMove, validMoves]);
 
   useEffect(() => {
+    if (!hoveredMove) return;
+
+    if (!isInteractiveTurn || gameState.phase !== 'moving') {
+      setHoveredMove(null);
+      return;
+    }
+
+    const stillValid = validMoves.some(
+      (move) =>
+        move.pieceId === hoveredMove.pieceId &&
+        move.fromIndex === hoveredMove.fromIndex &&
+        move.toIndex === hoveredMove.toIndex,
+    );
+
+    if (!stillValid) {
+      setHoveredMove(null);
+    }
+  }, [gameState.phase, hoveredMove, isInteractiveTurn, validMoves]);
+
+  useEffect(() => {
     setSelectedMove(null);
+    setHoveredMove(null);
   }, [gameState.currentTurn, gameState.phase, gameState.rollValue]);
 
   const executeMove = (move: MoveAction) => {
@@ -524,10 +559,12 @@ export const Board: React.FC<BoardProps> = ({
     LayoutAnimation.configureNext(LayoutAnimation.Presets.spring);
     makeMove(move);
     setSelectedMove(null);
+    setHoveredMove(null);
   };
 
   const handleSpawnCuePress = () => {
     if (!spawnMove || !isInteractiveTurn || gameState.phase !== 'moving') return;
+    setHoveredMove(null);
 
     if (
       selectedMove &&
@@ -540,6 +577,26 @@ export const Board: React.FC<BoardProps> = ({
     }
 
     setSelectedMove(spawnMove);
+  };
+
+  const handleSpawnCueHoverIn = () => {
+    if (!spawnMove || !isInteractiveTurn || gameState.phase !== 'moving' || !!selectedMove) return;
+    setHoveredMove(spawnMove);
+  };
+
+  const handleSpawnCueHoverOut = () => {
+    if (!spawnMove) return;
+    setHoveredMove((current) => {
+      if (!current) return null;
+      if (
+        current.pieceId === spawnMove.pieceId &&
+        current.fromIndex === spawnMove.fromIndex &&
+        current.toIndex === spawnMove.toIndex
+      ) {
+        return null;
+      }
+      return current;
+    });
   };
 
   const handleScoreCuePress = () => {
@@ -573,6 +630,7 @@ export const Board: React.FC<BoardProps> = ({
     );
 
     if (moveFromTile) {
+      setHoveredMove(null);
       if (
         selectedMove &&
         selectedMove.pieceId === moveFromTile.pieceId &&
@@ -606,6 +664,27 @@ export const Board: React.FC<BoardProps> = ({
     }
 
     setSelectedMove(null);
+    setHoveredMove(null);
+  };
+
+  const handleTileHoverIn = (moveFromTile?: MoveAction) => {
+    if (!moveFromTile || !isInteractiveTurn || gameState.phase !== 'moving' || !!selectedMove) return;
+    setHoveredMove(moveFromTile);
+  };
+
+  const handleTileHoverOut = (moveFromTile?: MoveAction) => {
+    if (!moveFromTile) return;
+    setHoveredMove((current) => {
+      if (!current) return null;
+      if (
+        current.pieceId === moveFromTile.pieceId &&
+        current.fromIndex === moveFromTile.fromIndex &&
+        current.toIndex === moveFromTile.toIndex
+      ) {
+        return null;
+      }
+      return current;
+    });
   };
 
   const cueAnimatedStyle = useAnimatedStyle(() => ({
@@ -682,6 +761,8 @@ export const Board: React.FC<BoardProps> = ({
               highlightMode={highlightMode}
               skin="transparent"
               onPress={() => handleTilePress(r, c)}
+              onHoverIn={() => handleTileHoverIn(moveFromTile)}
+              onHoverOut={() => handleTileHoverOut(moveFromTile)}
             />
           </View>,
         );
@@ -854,12 +935,17 @@ export const Board: React.FC<BoardProps> = ({
       {spawnCueAnchor && (
         <Pressable
           onPress={handleSpawnCuePress}
+          onHoverIn={handleSpawnCueHoverIn}
+          onHoverOut={handleSpawnCueHoverOut}
           disabled={!isInteractiveTurn}
           style={[
             styles.spawnCueTouchable,
             {
-              left: spawnCueAnchor.x - CUE_SIZE / 2,
-              top: spawnCueAnchor.y - CUE_SIZE / 2,
+              left: spawnCueAnchor.x - spawnCueSize / 2,
+              top: spawnCueAnchor.y - spawnCueSize / 2,
+              width: spawnCueSize,
+              height: spawnCueSize,
+              borderRadius: spawnCueSize / 2,
             },
           ]}
         >
@@ -868,18 +954,17 @@ export const Board: React.FC<BoardProps> = ({
               styles.spawnCue,
               spawnCueSelected && styles.spawnCueSelected,
               !isInteractiveTurn && styles.spawnCueReadonly,
+              { borderRadius: spawnCueSize / 2 },
               cueAnimatedStyle,
             ]}
           >
-            <View style={styles.spawnCueInner}>
-              <Piece
-                color={spawnCueColor}
-                size="sm"
-                variant={spawnCueColor}
-                highlight={spawnCueSelected}
-                state={spawnCueSelected ? 'active' : 'idle'}
-              />
-            </View>
+            <Piece
+              color={spawnCueColor}
+              pixelSize={boardPiecePixelSize}
+              variant={spawnCueColor}
+              highlight={spawnCueSelected}
+              state={spawnCueSelected ? 'active' : 'idle'}
+            />
           </Animated.View>
         </Pressable>
       )}
@@ -1046,9 +1131,6 @@ const styles = StyleSheet.create({
   },
   spawnCueTouchable: {
     position: 'absolute',
-    width: CUE_SIZE,
-    height: CUE_SIZE,
-    borderRadius: urTheme.radii.pill,
   },
   scoreCueTouchable: {
     position: 'absolute',
@@ -1083,33 +1165,18 @@ const styles = StyleSheet.create({
   },
   spawnCue: {
     flex: 1,
-    borderRadius: urTheme.radii.pill,
-    borderWidth: 1.5,
-    borderColor: 'rgba(111, 184, 255, 0.84)',
-    backgroundColor: 'rgba(11, 24, 37, 0.78)',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: urTheme.colors.glow,
-    shadowOpacity: 0.45,
+    shadowOpacity: 0.22,
     shadowRadius: 8,
     elevation: 7,
   },
   spawnCueReadonly: {
-    borderColor: 'rgba(206, 172, 112, 0.58)',
-    backgroundColor: 'rgba(40, 31, 19, 0.76)',
+    opacity: 0.8,
   },
   spawnCueSelected: {
-    borderColor: 'rgba(245, 214, 149, 0.95)',
     shadowColor: '#F5D695',
-  },
-  spawnCueInner: {
-    width: 42,
-    height: 42,
-    borderRadius: urTheme.radii.pill,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(15, 27, 39, 0.5)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 229, 183, 0.28)',
+    shadowOpacity: 0.34,
   },
 });

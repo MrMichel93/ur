@@ -2,7 +2,7 @@ import { urTheme, urTextures } from '@/constants/urTheme';
 import { isRosette, isWarZone } from '@/logic/constants';
 import { PlayerColor } from '@/logic/types';
 import React, { useEffect, useMemo, useRef } from 'react';
-import { Image, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Image, Pressable, StyleSheet, View } from 'react-native';
 import Svg, { Circle, Ellipse, G, Polygon } from 'react-native-svg';
 import Animated, {
   Easing,
@@ -25,6 +25,8 @@ interface TileProps {
   isSelectedPiece?: boolean;
   isInteractive?: boolean;
   onPress?: () => void;
+  onHoverIn?: () => void;
+  onHoverOut?: () => void;
   highlightMode?: 'subtle' | 'theatrical';
   skin?: 'default' | 'transparent';
 }
@@ -134,6 +136,8 @@ export const Tile: React.FC<TileProps> = ({
   isSelectedPiece = false,
   isInteractive = false,
   onPress,
+  onHoverIn,
+  onHoverOut,
   highlightMode = 'theatrical',
   skin = 'default',
 }) => {
@@ -150,6 +154,36 @@ export const Tile: React.FC<TileProps> = ({
   const cellRenderedSize = cellSize;
   const tileRadius = Math.max(3, Math.round(cellRenderedSize * 0.06));
   const innerInsetMargin = Math.max(1.5, Math.round(cellRenderedSize * 0.03));
+  const destinationGlowSize = useMemo(() => {
+    const baseSize =
+      typeof piecePixelSize === 'number' && Number.isFinite(piecePixelSize) && piecePixelSize > 0
+        ? piecePixelSize
+        : Math.max(14, Math.round(cellRenderedSize * 0.74));
+    // Additional 15% reduction from the prior 0.8x size target.
+    return Math.max(10, Math.round(baseSize * 0.68));
+  }, [cellRenderedSize, piecePixelSize]);
+
+  const tileStyle = ({ pressed }: { pressed: boolean }) => [
+    styles.tile,
+    skin === 'transparent'
+      ? {
+        backgroundColor: 'transparent',
+        borderColor: 'transparent',
+        borderWidth: 0,
+        borderRadius: tileRadius,
+        shadowOpacity: 0,
+        elevation: 0,
+      }
+      : {
+        backgroundColor: baseBackground,
+        borderColor,
+        borderWidth: rosette ? 1.8 : 1.1,
+        borderRadius: tileRadius,
+      },
+    isValidTarget && styles.validTile,
+    isSelectedPiece && styles.selectedTile,
+    isInteractive && pressed && styles.tilePressed,
+  ];
 
   useEffect(() => {
     if (isValidTarget) {
@@ -246,30 +280,12 @@ export const Tile: React.FC<TileProps> = ({
   const borderColor = rosette ? 'rgba(246, 214, 151, 0.38)' : 'rgba(90, 63, 39, 0.28)';
 
   return (
-    <TouchableOpacity
+    <Pressable
       onPress={onPress}
+      onHoverIn={onHoverIn}
+      onHoverOut={onHoverOut}
       disabled={!isInteractive}
-      activeOpacity={0.92}
-      style={[
-        styles.tile,
-        skin === 'transparent'
-          ? {
-            backgroundColor: 'transparent',
-            borderColor: 'transparent',
-            borderWidth: 0,
-            borderRadius: tileRadius,
-            shadowOpacity: 0,
-            elevation: 0,
-          }
-          : {
-            backgroundColor: baseBackground,
-            borderColor,
-            borderWidth: rosette ? 1.8 : 1.1,
-            borderRadius: tileRadius,
-          },
-        isValidTarget && styles.validTile,
-        isSelectedPiece && styles.selectedTile,
-      ]}
+      style={tileStyle}
     >
       {skin !== 'transparent' && (
         <>
@@ -307,11 +323,21 @@ export const Tile: React.FC<TileProps> = ({
       )}
 
       {isSelectedPiece && <Animated.View style={[styles.selectedRing, selectedPulseStyle]} />}
-      {isValidTarget && <Animated.View style={[styles.validRing, pulseStyle]} />}
+      {isValidTarget && (
+        <Animated.View
+          style={[
+            styles.validDestinationGlow,
+            pulseStyle,
+            {
+              width: destinationGlowSize,
+              height: destinationGlowSize,
+              borderRadius: destinationGlowSize / 2,
+            },
+          ]}
+        />
+      )}
       {rosette && <Animated.View style={[styles.rosetteGlow, rosetteGlowStyle]} />}
       {rosette && <Animated.View style={[styles.rosetteBurst, rosetteBurstStyle]} />}
-
-      {isValidTarget && !piece && <View style={styles.validDot} />}
 
       {piece && (
         <View style={styles.pieceWrap}>
@@ -323,7 +349,7 @@ export const Tile: React.FC<TileProps> = ({
           />
         </View>
       )}
-    </TouchableOpacity>
+    </Pressable>
   );
 };
 
@@ -339,6 +365,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.16,
     shadowRadius: 2,
     elevation: 2,
+  },
+  tilePressed: {
+    opacity: 0.92,
   },
   validTile: {
     shadowColor: '#B8FFB3',
@@ -422,14 +451,15 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(255, 248, 228, 0.018)',
   },
-  validRing: {
+  validDestinationGlow: {
     position: 'absolute',
-    width: '84%',
-    height: '84%',
-    borderRadius: urTheme.radii.xs + 1,
-    borderWidth: 2,
-    borderColor: 'rgba(236, 204, 126, 0.94)',
-    backgroundColor: 'rgba(135, 210, 126, 0.08)',
+    borderWidth: 1.8,
+    borderColor: 'rgba(246, 212, 138, 0.95)',
+    backgroundColor: 'rgba(240, 192, 64, 0.18)',
+    shadowColor: urTheme.colors.goldGlow,
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 6,
   },
   selectedRing: {
     position: 'absolute',
@@ -454,14 +484,6 @@ const styles = StyleSheet.create({
     borderRadius: urTheme.radii.xs,
     borderWidth: 1.6,
     borderColor: 'rgba(255, 239, 196, 0.78)',
-  },
-  validDot: {
-    width: 12,
-    height: 12,
-    borderRadius: urTheme.radii.pill,
-    backgroundColor: 'rgba(241, 226, 178, 0.9)',
-    borderWidth: 1,
-    borderColor: 'rgba(67, 40, 21, 0.36)',
   },
   pieceWrap: {
     width: '100%',

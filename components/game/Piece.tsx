@@ -116,6 +116,8 @@ export const Piece: React.FC<PieceProps> = ({
   }, [pixelSize, size]);
 
   const artSizePx = useMemo(() => Math.max(1, sizePx * PIECE_ART_FIT.scale * artScale), [artScale, sizePx]);
+  // Additional 15% reduction from the prior 0.8x size target.
+  const targetGlowSizePx = useMemo(() => Math.max(1, Math.round(sizePx * 0.68)), [sizePx]);
 
   const pieceStyle = useAnimatedStyle(() => ({
     transform: [
@@ -141,7 +143,16 @@ export const Piece: React.FC<PieceProps> = ({
   return (
     <Animated.View style={[styles.wrap, { width: sizePx, height: sizePx }, pieceStyle]}>
       {highlight && (
-        <Animated.View style={[styles.targetGlow, glowStyle, { width: sizePx + 8, height: sizePx + 8 }]} />
+        <Animated.View
+          style={[
+            styles.targetGlow,
+            glowStyle,
+            {
+              width: targetGlowSizePx,
+              height: targetGlowSizePx,
+            },
+          ]}
+        />
       )}
 
       <Animated.View
@@ -184,7 +195,9 @@ const styles = StyleSheet.create({
   targetGlow: {
     position: 'absolute',
     borderRadius: urTheme.radii.pill,
-    backgroundColor: 'rgba(240, 192, 64, 0.28)',
+    borderWidth: 1.6,
+    borderColor: 'rgba(246, 212, 138, 0.9)',
+    backgroundColor: 'rgba(240, 192, 64, 0.18)',
   },
   baseShadow: {
     position: 'absolute',
