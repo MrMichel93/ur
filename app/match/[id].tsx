@@ -1,4 +1,4 @@
-import { Board } from '@/components/game/Board';
+import { Board, getBoardPiecePixelSize } from '@/components/game/Board';
 import { Dice } from '@/components/game/Dice';
 import { EdgeScore } from '@/components/game/EdgeScore';
 import { GameStageHUD } from '@/components/game/GameStageHUD';
@@ -417,6 +417,10 @@ export default function GameRoom() {
   const widenedBoardLayoutTarget = Math.min(urTheme.layout.boardMax, boardWidthLimitByLayout * 1.5);
   const targetBoardWidth = Math.max(110, Math.min(widenedBoardLayoutTarget, boardWidthLimitByHeight, boardSlotWidth));
   const boardScale = Math.max(0.24, Math.min(1, targetBoardWidth / Math.max(boardBaseWidth, 1)));
+  const reservePiecePixelSize = useMemo(
+    () => getBoardPiecePixelSize({ viewportWidth: width, boardScale, orientation: 'vertical' }),
+    [boardScale, width],
+  );
   const stageGap = height < 760 ? urTheme.spacing.sm : urTheme.spacing.md;
   const viewportTopPadding = 0;
   const viewportBottomPadding = Math.max(insets.bottom, urTheme.spacing.xs);
@@ -512,6 +516,7 @@ export default function GameRoom() {
                   label="Light Reserve"
                   color="light"
                   tokenVariant="light"
+                  piecePixelSize={reservePiecePixelSize}
                   reserveCount={lightReserve}
                   active={isMyTurn}
                 />
@@ -541,6 +546,7 @@ export default function GameRoom() {
                   label="Dark Reserve"
                   color="dark"
                   tokenVariant="dark"
+                  piecePixelSize={reservePiecePixelSize}
                   reserveCount={darkReserve}
                   active={!isMyTurn}
                 />
@@ -576,6 +582,7 @@ export default function GameRoom() {
                       label="Light Reserve"
                       color="light"
                       tokenVariant="light"
+                      piecePixelSize={reservePiecePixelSize}
                       reserveCount={lightReserve}
                       active={isMyTurn}
                     />
@@ -586,6 +593,7 @@ export default function GameRoom() {
                       label="Dark Reserve"
                       color="dark"
                       tokenVariant="dark"
+                      piecePixelSize={reservePiecePixelSize}
                       reserveCount={darkReserve}
                       active={!isMyTurn}
                     />

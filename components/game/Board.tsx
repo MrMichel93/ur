@@ -26,7 +26,7 @@ interface BoardProps {
   showRailHints?: boolean;
   highlightMode?: 'subtle' | 'theatrical';
   boardScale?: number;
-  orientation?: 'horizontal' | 'vertical';
+  orientation?: BoardOrientation;
   gameStateOverride?: GameState;
   validMovesOverride?: MoveAction[];
   onMakeMoveOverride?: (move: MoveAction) => void;
@@ -67,6 +67,8 @@ interface BoardArtAlignmentConfig {
   insetLeft: number;
 }
 
+export type BoardOrientation = 'horizontal' | 'vertical';
+
 const FRAME_PADDING = urTheme.spacing.sm;
 const INNER_PADDING = urTheme.spacing.xs;
 const GRID_GAP = 0;
@@ -77,6 +79,26 @@ const MIN_TILE_SHELL_PADDING = 2;
 // Controls how much of each tile the on-board piece art occupies.
 const BOARD_PIECE_TILE_COVERAGE = 0.86;
 const SHOW_BOARD_ALIGNMENT_DEBUG = false;
+
+interface BoardPiecePixelSizeOptions {
+  viewportWidth: number;
+  boardScale?: number;
+  orientation?: BoardOrientation;
+}
+
+export const getBoardPiecePixelSize = ({
+  viewportWidth,
+  boardScale = 1,
+  orientation = 'horizontal',
+}: BoardPiecePixelSizeOptions): number => {
+  const displayCols = orientation === 'vertical' ? BOARD_ROWS : BOARD_COLS;
+  const boardWidth = Math.min(viewportWidth - urTheme.spacing.lg, urTheme.layout.boardMax) * boardScale;
+  const gridWidth = boardWidth - FRAME_PADDING * 2 - INNER_PADDING * 2;
+  const cellSize = gridWidth / displayCols;
+  const tileShellPadding = Math.max(MIN_TILE_SHELL_PADDING, Math.round(cellSize * 0.04));
+  const renderedTileSize = Math.max(18, Math.round(cellSize - tileShellPadding * 2));
+  return Math.max(14, Math.round(renderedTileSize * BOARD_PIECE_TILE_COVERAGE));
+};
 
 // Gameplay geometry is canonical; adjust this object if the PNG asset changes.
 const BOARD_ART_ALIGNMENT: BoardArtAlignmentConfig = {
@@ -982,11 +1004,11 @@ const styles = StyleSheet.create({
     borderWidth: 0,
     borderColor: 'transparent',
     overflow: 'visible',
-    shadowColor: '#120A05',
-    shadowOpacity: 0.18,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 4,
+    shadowColor: 'transparent',
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 0,
   },
   boardArtLayer: {
     ...StyleSheet.absoluteFillObject,

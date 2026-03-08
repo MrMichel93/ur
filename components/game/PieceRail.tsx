@@ -1,5 +1,5 @@
 import { urTheme, urTypography } from '@/constants/urTheme';
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   Easing,
@@ -17,36 +17,47 @@ const TRAY_ASSETS = {
   dark: require('../../assets/trays/tray_dark.png'),
 };
 
+// Second +30% size pass requested by design review.
+const RAIL_SIZE_SCALE = 1.69;
+const TRAY_SIZE_BOOST = 1.3;
+const TRAY_SIZE_REDUCTION = 0.85;
+const TRAY_SIZE_REGAIN = 1.15;
+const DEFAULT_RESERVE_PIECE_SIZE = 34;
+
 const TRAY_ART_FIT = {
   // Artwork-only fit tuning; does not affect piece coordinates or hitboxes.
-  scale: 1.12,
+  // Increase current tray display size by 15%.
+  scale: 1.12 * 1.3 * TRAY_SIZE_BOOST * TRAY_SIZE_REDUCTION * TRAY_SIZE_REGAIN,
   offsetX: 0,
   offsetY: 0,
 };
 
-const RESERVE_PIECE_ART_SCALE = 1.74;
-const RESERVE_STACK_OFFSET_Y = 2;
-const RESERVE_PIECE_OVERLAP = 6;
-const RESERVE_STACK_LEFT_INSET = 4;
+const RESERVE_STACK_OFFSET_Y = Math.round(2 * RAIL_SIZE_SCALE);
+const RAIL_MIN_HEIGHT = Math.round(
+  76 * RAIL_SIZE_SCALE * TRAY_SIZE_BOOST * TRAY_SIZE_REDUCTION * TRAY_SIZE_REGAIN,
+);
+const RAIL_HORIZONTAL_PADDING = Math.round(12 * RAIL_SIZE_SCALE);
 
 interface PieceRailProps {
-  label: string;
+  label?: string;
   color: 'light' | 'dark';
   tokenVariant?: 'light' | 'dark' | 'reserve';
+  piecePixelSize?: number;
   reserveCount: number;
   totalCount?: number;
   active?: boolean;
 }
 
 export const PieceRail: React.FC<PieceRailProps> = ({
-  label,
   color,
   tokenVariant,
+  piecePixelSize,
   reserveCount,
   totalCount = 7,
   active = false,
 }) => {
   const glow = useSharedValue(active ? 0.5 : 0);
+  const [railWidth, setRailWidth] = useState(0);
 
   useEffect(() => {
     if (active) {
@@ -72,12 +83,59 @@ export const PieceRail: React.FC<PieceRailProps> = ({
 
   const shownCount = Math.min(totalCount, reserveCount);
   const resolvedVariant = tokenVariant ?? color;
+  const railLabel = color === 'light' ? 'Light' : 'Dark';
+  const reservePieceSize = piecePixelSize ?? DEFAULT_RESERVE_PIECE_SIZE;
+
+  const pieceLayout = useMemo(() => {
+    const minOverlap = Math.max(1, Math.round(reservePieceSize * 0.14));
+    const preferredOverlap = Math.max(minOverlap, Math.round(reservePieceSize * 0.24));
+    const preferredInset = Math.max(10, Math.round(reservePieceSize * 0.28));
+
+    if (shownCount <= 0) {
+      return {
+        overlap: preferredOverlap,
+        horizontalInset: preferredInset,
+      };
+    }
+
+    if (railWidth <= 0) {
+      return {
+        overlap: preferredOverlap,
+        horizontalInset: preferredInset,
+      };
+    }
+
+    const preferredStep = reservePieceSize - preferredOverlap;
+    const preferredSpan = reservePieceSize + preferredStep * Math.max(0, shownCount - 1);
+    const maxInset = Math.max(0, Math.floor((railWidth - preferredSpan) / 2));
+    const horizontalInset = Math.min(preferredInset, maxInset);
+    const usableWidth = Math.max(0, railWidth - horizontalInset * 2);
+
+    let overlap = preferredOverlap;
+    if (shownCount > 1) {
+      const maxStepForFit = Math.floor((usableWidth - reservePieceSize) / (shownCount - 1));
+      const stepWithMinOverlap = reservePieceSize - minOverlap;
+      const resolvedStep = Math.max(1, Math.min(stepWithMinOverlap, maxStepForFit));
+      overlap = Math.max(minOverlap, reservePieceSize - resolvedStep);
+    }
+
+    return {
+      overlap,
+      horizontalInset,
+    };
+  }, [railWidth, reservePieceSize, shownCount]);
 
   return (
     <View style={styles.wrap}>
-      <Text style={styles.label}>{label}</Text>
+      <Text style={styles.label}>{railLabel}</Text>
 
-      <View style={styles.rail}>
+      <View
+        style={styles.rail}
+        onLayout={(event) => {
+          const nextWidth = Math.round(event.nativeEvent.layout.width);
+          setRailWidth((prev) => (prev === nextWidth ? prev : nextWidth));
+        }}
+      >
         {/*
           Reserve tray artwork is rendered as a background PNG.
           Piece positions and stacking geometry are determined by gameplay layout,
@@ -86,7 +144,7 @@ export const PieceRail: React.FC<PieceRailProps> = ({
         <View pointerEvents="none" style={styles.trayArtLayer}>
           <Image
             source={TRAY_ASSETS[color]}
-            resizeMode="cover"
+            resizeMode="contain"
             style={[
               styles.trayArt,
               {
@@ -101,14 +159,23 @@ export const PieceRail: React.FC<PieceRailProps> = ({
         </View>
         <Animated.View style={[styles.activeGlow, glowStyle]} />
 
-        <View style={styles.pieceStack}>
+        <View style={[styles.pieceStack, { paddingHorizontal: pieceLayout.horizontalInset }]}>
           {Array.from({ length: shownCount }).map((_, index) => (
-            <View key={`piece-${index}`} style={[styles.stackPiece, { marginLeft: index === 0 ? 0 : -RESERVE_PIECE_OVERLAP }]}>
+            <View
+              key={`piece-${index}`}
+              style={[
+                styles.stackPiece,
+                {
+                  marginLeft: index === 0 ? 0 : -pieceLayout.overlap,
+                  width: reservePieceSize,
+                  height: reservePieceSize,
+                },
+              ]}
+            >
               <Piece
                 color={color}
-                size="sm"
+                pixelSize={reservePieceSize}
                 variant={resolvedVariant}
-                artScale={RESERVE_PIECE_ART_SCALE}
               />
             </View>
           ))}
@@ -130,19 +197,19 @@ const styles = StyleSheet.create({
     textAlign: 'left',
   },
   rail: {
-    minHeight: 76,
+    minHeight: RAIL_MIN_HEIGHT,
     borderRadius: urTheme.radii.pill,
     borderWidth: 1.2,
     borderColor: 'transparent',
     backgroundColor: 'transparent',
-    overflow: 'hidden',
+    overflow: 'visible',
     justifyContent: 'center',
-    paddingHorizontal: 12,
+    paddingHorizontal: RAIL_HORIZONTAL_PADDING,
     shadowColor: '#000',
-    shadowOpacity: 0.24,
-    shadowRadius: 7,
+    shadowOpacity: 0,
+    shadowRadius: 0,
     shadowOffset: { width: 0, height: 5 },
-    elevation: 6,
+    elevation: 0,
   },
   trayArtLayer: {
     ...StyleSheet.absoluteFillObject,
@@ -154,14 +221,15 @@ const styles = StyleSheet.create({
   },
   activeGlow: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(200, 152, 30, 0.16)',
+    backgroundColor: 'transparent',
     zIndex: 1,
   },
   pieceStack: {
     flexDirection: 'row',
-    alignSelf: 'flex-start',
+    alignSelf: 'stretch',
+    justifyContent: 'center',
     alignItems: 'center',
-    paddingLeft: RESERVE_STACK_LEFT_INSET,
+    paddingHorizontal: RAIL_HORIZONTAL_PADDING,
     transform: [{ translateY: RESERVE_STACK_OFFSET_Y }],
     zIndex: 2,
   },
