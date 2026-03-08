@@ -875,13 +875,6 @@ export const Board: React.FC<BoardProps> = ({
         </Pressable>
       )}
 
-      {showRailHints && (
-        <View pointerEvents="none" style={isVertical ? styles.hintColumn : styles.hintRow}>
-          <Text style={styles.hintText}>START</Text>
-          <Text style={styles.hintText}>FINISH</Text>
-        </View>
-      )}
-
     </View>
   );
 };
@@ -904,7 +897,8 @@ const styles = StyleSheet.create({
   boardArtLayer: {
     ...StyleSheet.absoluteFillObject,
     borderRadius: urTheme.radii.lg + 6,
-    overflow: 'hidden',
+    // Allow decorative border bleed for wider board templates (e.g. Greece variants).
+    overflow: 'visible',
   },
   boardArtImage: {
     position: 'absolute',
@@ -1108,27 +1102,5 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(15, 27, 39, 0.5)',
     borderWidth: 1,
     borderColor: 'rgba(255, 229, 183, 0.28)',
-  },
-  hintRow: {
-    position: 'absolute',
-    left: 14,
-    right: 14,
-    bottom: 8,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  hintColumn: {
-    position: 'absolute',
-    top: 14,
-    bottom: 14,
-    right: 8,
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  hintText: {
-    color: 'rgba(248, 229, 198, 0.85)',
-    fontSize: 10,
-    letterSpacing: 1,
-    fontWeight: '700',
   },
 });
