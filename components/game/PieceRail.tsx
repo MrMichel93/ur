@@ -1,6 +1,6 @@
 import { urTheme, urTypography } from '@/constants/urTheme';
 import React, { useEffect, useMemo, useState } from 'react';
-import { Image, StyleSheet, Text, View } from 'react-native';
+import { Image, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import Animated, {
   Easing,
   cancelAnimation,
@@ -37,6 +37,7 @@ const RAIL_MIN_HEIGHT = Math.round(
   76 * RAIL_SIZE_SCALE * TRAY_SIZE_BOOST * TRAY_SIZE_REDUCTION * TRAY_SIZE_REGAIN,
 );
 const RAIL_HORIZONTAL_PADDING = Math.round(12 * RAIL_SIZE_SCALE);
+const MOBILE_RAIL_SCALE = 0.62;
 
 interface PieceRailProps {
   label?: string;
@@ -56,8 +57,15 @@ export const PieceRail: React.FC<PieceRailProps> = ({
   totalCount = 7,
   active = false,
 }) => {
+  const { width } = useWindowDimensions();
   const glow = useSharedValue(active ? 0.5 : 0);
   const [railWidth, setRailWidth] = useState(0);
+  const isMobile = width < 760;
+  const railScale = isMobile ? MOBILE_RAIL_SCALE : 1;
+  const railMinHeight = Math.round(RAIL_MIN_HEIGHT * railScale);
+  const railHorizontalPadding = Math.round(RAIL_HORIZONTAL_PADDING * railScale);
+  const reserveStackOffsetY = Math.round(RESERVE_STACK_OFFSET_Y * railScale);
+  const trayArtScale = TRAY_ART_FIT.scale * (isMobile ? 0.78 : 1);
 
   useEffect(() => {
     if (active) {
@@ -83,7 +91,7 @@ export const PieceRail: React.FC<PieceRailProps> = ({
 
   const shownCount = Math.min(totalCount, reserveCount);
   const resolvedVariant = tokenVariant ?? color;
-  const railLabel = color === 'light' ? 'Light' : 'Dark';
+  const railLabel = color === 'light' ? 'LIGHT' : 'DARK';
   const reservePieceSize = piecePixelSize ?? DEFAULT_RESERVE_PIECE_SIZE;
 
   const pieceLayout = useMemo(() => {
@@ -130,7 +138,13 @@ export const PieceRail: React.FC<PieceRailProps> = ({
       <Text style={styles.label}>{railLabel}</Text>
 
       <View
-        style={styles.rail}
+        style={[
+          styles.rail,
+          {
+            minHeight: railMinHeight,
+            paddingHorizontal: railHorizontalPadding,
+          },
+        ]}
         onLayout={(event) => {
           const nextWidth = Math.round(event.nativeEvent.layout.width);
           setRailWidth((prev) => (prev === nextWidth ? prev : nextWidth));
@@ -151,7 +165,7 @@ export const PieceRail: React.FC<PieceRailProps> = ({
                 transform: [
                   { translateX: TRAY_ART_FIT.offsetX },
                   { translateY: TRAY_ART_FIT.offsetY },
-                  { scale: TRAY_ART_FIT.scale },
+                  { scale: trayArtScale },
                 ],
               },
             ]}
@@ -159,7 +173,15 @@ export const PieceRail: React.FC<PieceRailProps> = ({
         </View>
         <Animated.View style={[styles.activeGlow, glowStyle]} />
 
-        <View style={[styles.pieceStack, { paddingHorizontal: pieceLayout.horizontalInset }]}>
+        <View
+          style={[
+            styles.pieceStack,
+            {
+              paddingHorizontal: pieceLayout.horizontalInset,
+              transform: [{ translateY: reserveStackOffsetY }],
+            },
+          ]}
+        >
           {Array.from({ length: shownCount }).map((_, index) => (
             <View
               key={`piece-${index}`}
@@ -188,7 +210,7 @@ export const PieceRail: React.FC<PieceRailProps> = ({
 const styles = StyleSheet.create({
   wrap: {
     width: '100%',
-    gap: 8,
+    gap: 4,
   },
   label: {
     ...urTypography.label,
@@ -197,14 +219,12 @@ const styles = StyleSheet.create({
     textAlign: 'left',
   },
   rail: {
-    minHeight: RAIL_MIN_HEIGHT,
     borderRadius: urTheme.radii.pill,
     borderWidth: 1.2,
     borderColor: 'transparent',
     backgroundColor: 'transparent',
     overflow: 'visible',
     justifyContent: 'center',
-    paddingHorizontal: RAIL_HORIZONTAL_PADDING,
     shadowColor: '#000',
     shadowOpacity: 0,
     shadowRadius: 0,
@@ -229,8 +249,6 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: RAIL_HORIZONTAL_PADDING,
-    transform: [{ translateY: RESERVE_STACK_OFFSET_Y }],
     zIndex: 2,
   },
   stackPiece: {
