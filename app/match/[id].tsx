@@ -443,6 +443,7 @@ export default function GameRoom() {
     Math.round(height * 0.74) - (compactSupportUi ? 188 : 244),
   );
   const mobileBoardOffsetTop = isMobileLayout ? Math.max(scoreOverlayTop + 20, Math.round(height * 0.09)) : 0;
+  const mobileBoardOffsetBottom = isMobileLayout ? Math.max(urTheme.spacing.sm, Math.round(height * 0.035)) : 0;
 
   return (
     <View style={styles.screen}>
@@ -602,7 +603,7 @@ export default function GameRoom() {
               ]}
             >
               <View
-                style={styles.boardViewport}
+                style={[styles.boardViewport, { paddingBottom: mobileBoardOffsetBottom }]}
                 onLayout={(event) => {
                   const { width: slotWidth, height: slotHeight } = event.nativeEvent.layout;
                   setBoardSlotSize((prev) =>
