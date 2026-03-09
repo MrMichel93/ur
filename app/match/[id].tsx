@@ -442,7 +442,7 @@ export default function GameRoom() {
     scoreOverlayTop + urTheme.spacing.sm,
     Math.round(height * 0.74) - (compactSupportUi ? 188 : 244),
   );
-  const mobileBoardOffsetTop = isMobileLayout ? Math.max(scoreOverlayTop + 82, Math.round(height * 0.16)) : 0;
+  const mobileBoardOffsetTop = isMobileLayout ? Math.max(scoreOverlayTop + 62, Math.round(height * 0.13)) : 0;
 
   return (
     <View style={styles.screen}>
