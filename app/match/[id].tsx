@@ -425,6 +425,7 @@ export default function GameRoom() {
     ? Math.max(12, Math.round(reservePiecePixelSize * (width < 760 ? 0.72 : 0.84)))
     : reservePiecePixelSize;
   const stageGap = height < 760 ? urTheme.spacing.xs : urTheme.spacing.sm;
+  const isMobileLayout = width < 760;
   const viewportTopPadding = 0;
   const viewportBottomPadding = Math.max(insets.bottom, urTheme.spacing.xs);
   const topChromeTop = insets.top + urTheme.spacing.xs;
@@ -437,6 +438,7 @@ export default function GameRoom() {
     scoreOverlayTop + urTheme.spacing.sm,
     Math.round(height * 0.74) - (compactSupportUi ? 188 : 244),
   );
+  const mobileBoardOffsetTop = isMobileLayout ? Math.max(scoreOverlayTop + 82, Math.round(height * 0.16)) : 0;
 
   return (
     <View style={styles.screen}>
@@ -581,7 +583,15 @@ export default function GameRoom() {
               </View>
             </View>
           ) : (
-            <View style={[styles.boardClusterMobile, { gap: urTheme.spacing.sm }]}>
+            <View
+              style={[
+                styles.boardClusterMobile,
+                {
+                  gap: urTheme.spacing.sm,
+                  paddingTop: mobileBoardOffsetTop,
+                },
+              ]}
+            >
               <View
                 style={styles.boardViewport}
                 onLayout={(event) => {
