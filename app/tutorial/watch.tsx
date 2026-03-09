@@ -243,6 +243,7 @@ export default function WatchTutorialScreen() {
   const backdropOverscan = Math.ceil(Math.max(width, height) * 0.025);
   const canvasTopEdgeLift = Math.max(24, Math.min(96, Math.round(height * 0.07)));
   const sideColumnTopInset = scoreOverlayTop + urTheme.spacing.sm;
+  const mobileBoardOffsetBottom = isMobileLayout ? Math.max(urTheme.spacing.sm, Math.round(height * 0.035)) : 0;
 
   return (
     <View style={styles.screen}>
@@ -423,7 +424,7 @@ export default function WatchTutorialScreen() {
           ) : (
             <View style={[styles.boardClusterMobile, { gap: urTheme.spacing.sm }]}>
               <View
-                style={styles.boardViewport}
+                style={[styles.boardViewport, { paddingBottom: mobileBoardOffsetBottom }]}
                 onLayout={(event) => {
                   const { width: slotWidth, height: slotHeight } = event.nativeEvent.layout;
                   setBoardSlotSize((prev) =>
