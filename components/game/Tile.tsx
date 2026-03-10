@@ -332,6 +332,8 @@ export const Tile: React.FC<TileProps> = ({
               width: destinationGlowSize,
               height: destinationGlowSize,
               borderRadius: destinationGlowSize / 2,
+              left: (cellRenderedSize - destinationGlowSize) / 2,
+              top: (cellRenderedSize - destinationGlowSize) / 2,
             },
           ]}
         />

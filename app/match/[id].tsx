@@ -445,6 +445,8 @@ export default function GameRoom() {
   const mobileBoardOffsetTop = isMobileLayout
     ? Math.max(scoreOverlayTop - urTheme.spacing.xs, Math.round(height * 0.100))
     : 0;
+  const mobileScoreRowInset = Math.max(urTheme.spacing.xs, Math.round(width / 65));
+  const mobileScoreIndicatorGap = Math.max(10, Math.round(width * 0.6));
 
 
   return (
@@ -509,7 +511,8 @@ export default function GameRoom() {
               styles.scoreRow,
               styles.scoreRowOverlay,
               { top: scoreOverlayTop },
-              isMobileLayout && styles.scoreRowOverlayMobile,
+              isMobileLayout && { left: mobileScoreRowInset - 3, right: mobileScoreRowInset - 2 },
+              isMobileLayout && { justifyContent: 'center', gap: mobileScoreIndicatorGap },
             ]}
           >
             <EdgeScore
@@ -755,9 +758,6 @@ const styles = StyleSheet.create({
     left: urTheme.spacing.xs,
     right: urTheme.spacing.xs,
     zIndex: 5,
-  },
-  scoreRowOverlayMobile: {
-    right: urTheme.spacing.sm,
   },
   boardClusterWide: {
     width: '100%',

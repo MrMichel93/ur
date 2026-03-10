@@ -12,6 +12,7 @@ interface EdgeScoreProps {
 export const EdgeScore: React.FC<EdgeScoreProps> = ({ label, value, active = false, align = 'left' }) => {
   const { width } = useWindowDimensions();
   const isMobile = width < 760;
+  const teamLabel = label.replace(/score/gi, '').trim();
 
   return (
     <View
@@ -25,8 +26,18 @@ export const EdgeScore: React.FC<EdgeScoreProps> = ({ label, value, active = fal
       <Image source={urTextures.lapisMosaic} resizeMode="cover" style={styles.texture} />
       <View style={styles.topGlow} />
       <View style={styles.innerBorder} />
-      <Text style={styles.label}>{label}</Text>
-      <Text style={styles.value}>{value}</Text>
+      {isMobile ? (
+        <>
+          <Text style={[styles.label, styles.mobileLabel]}>{teamLabel}</Text>
+          <Text style={styles.mobileScoreWord}>Score</Text>
+          <Text style={[styles.value, styles.mobileValue]}>{value}</Text>
+        </>
+      ) : (
+        <>
+          <Text style={styles.label}>{label}</Text>
+          <Text style={styles.value}>{value}</Text>
+        </>
+      )}
     </View>
   );
 };
@@ -44,8 +55,10 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   mobileWrap: {
-    minWidth: 96,
-    paddingHorizontal: 10,
+    minWidth: 54,
+    paddingVertical: 4,
+    paddingHorizontal: 6,
+    borderRadius: urTheme.radii.xs,
   },
   rightWrap: {
     alignItems: 'flex-end',
@@ -81,11 +94,30 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: 'rgba(241, 230, 208, 0.82)',
   },
+  mobileLabel: {
+    fontSize: 6,
+    letterSpacing: 0.65,
+    lineHeight: 8,
+  },
+  mobileScoreWord: {
+    ...urTypography.label,
+    marginTop: 1,
+    fontSize: 6,
+    lineHeight: 8,
+    letterSpacing: 0.65,
+    color: 'rgba(241, 230, 208, 0.74)',
+  },
   value: {
     marginTop: 3,
     color: '#F7E9CD',
     fontSize: 24,
     fontWeight: '700',
     letterSpacing: 0.5,
+  },
+  mobileValue: {
+    marginTop: 1,
+    fontSize: 13,
+    letterSpacing: 0.2,
+    lineHeight: 15,
   },
 });

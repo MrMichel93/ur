@@ -95,8 +95,10 @@ export const PieceRail: React.FC<PieceRailProps> = ({
   const reservePieceSize = piecePixelSize ?? DEFAULT_RESERVE_PIECE_SIZE;
 
   const pieceLayout = useMemo(() => {
-    const minOverlap = Math.max(1, Math.round(reservePieceSize * 0.14));
-    const preferredOverlap = Math.max(minOverlap, Math.round(reservePieceSize * 0.24));
+    const minOverlapRatio = isMobile ? 0.3 : 0.22;
+    const preferredOverlapRatio = isMobile ? 0.4 : 0.3;
+    const minOverlap = Math.max(1, Math.round(reservePieceSize * minOverlapRatio));
+    const preferredOverlap = Math.max(minOverlap, Math.round(reservePieceSize * preferredOverlapRatio));
     const preferredInset = Math.max(10, Math.round(reservePieceSize * 0.28));
 
     if (shownCount <= 0) {
@@ -122,8 +124,8 @@ export const PieceRail: React.FC<PieceRailProps> = ({
     let overlap = preferredOverlap;
     if (shownCount > 1) {
       const maxStepForFit = Math.floor((usableWidth - reservePieceSize) / (shownCount - 1));
-      const stepWithMinOverlap = reservePieceSize - minOverlap;
-      const resolvedStep = Math.max(1, Math.min(stepWithMinOverlap, maxStepForFit));
+      const maxStepWithMinOverlap = reservePieceSize - minOverlap;
+      const resolvedStep = Math.max(1, Math.min(preferredStep, maxStepForFit, maxStepWithMinOverlap));
       overlap = Math.max(minOverlap, reservePieceSize - resolvedStep);
     }
 
@@ -131,7 +133,7 @@ export const PieceRail: React.FC<PieceRailProps> = ({
       overlap,
       horizontalInset,
     };
-  }, [railWidth, reservePieceSize, shownCount]);
+  }, [isMobile, railWidth, reservePieceSize, shownCount]);
 
   return (
     <View style={styles.wrap}>
@@ -189,6 +191,8 @@ export const PieceRail: React.FC<PieceRailProps> = ({
                   marginLeft: index === 0 ? 0 : -pieceLayout.overlap,
                   width: reservePieceSize,
                   height: reservePieceSize,
+                  transform: [{ translateY: Math.round(index * (isMobile ? 1.1 : 0.8)) }],
+                  zIndex: index + 1,
                 },
               ]}
             >

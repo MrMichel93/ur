@@ -162,8 +162,11 @@ export const Dice: React.FC<DiceProps> = ({
       : 'Wait for your turn';
 
   const isStage = mode === 'stage';
-  const dieSize = compact ? 28 : 38;
-  const dieGap = compact ? 6 : 12;
+  const isCompactStage = compact && isStage;
+  const dieSize = isCompactStage ? 18 : compact ? 28 : 38;
+  const dieGap = isCompactStage ? 3 : compact ? 6 : 12;
+  const compactStageTitle = rolling ? 'Casting...' : value !== null ? `Result ${value}` : 'Cast Dice';
+  const compactStageSubtitle = rolling ? 'Rolling' : canRoll ? 'Tap to roll' : 'Wait turn';
 
   return (
     <TouchableOpacity onPress={onRoll} disabled={!canRoll || rolling} activeOpacity={0.9} style={styles.touchable}>
@@ -183,20 +186,44 @@ export const Dice: React.FC<DiceProps> = ({
 
         <Animated.View style={[styles.groundShadow, compact && styles.compactGroundShadow, groundShadowStyle]} />
 
-        <Animated.View style={[styles.diceRow, compact && styles.compactDiceRow, { gap: dieGap }, diceRowStyle]}>
-          {[0, 1, 2, 3].map((index) => {
-            const isOn = value !== null && index < value;
+        {isCompactStage ? (
+          <View style={styles.compactStageContent}>
+            <Animated.View
+              style={[styles.diceRow, styles.compactDiceRow, styles.compactStageDiceRow, { gap: dieGap }, diceRowStyle]}
+            >
+              {[0, 1, 2, 3].map((index) => {
+                const isOn = value !== null && index < value;
 
-            return (
-              <View key={index} style={[styles.dieWrap, compact && styles.compactDieWrap]}>
-                <TetrahedralDie isOn={isOn} size={dieSize} />
-              </View>
-            );
-          })}
-        </Animated.View>
+                return (
+                  <View key={index} style={[styles.dieWrap, styles.compactStageDieWrap]}>
+                    <TetrahedralDie isOn={isOn} size={dieSize} />
+                  </View>
+                );
+              })}
+            </Animated.View>
+            <View style={styles.compactStageTextWrap}>
+              {showNumericResult && <Text style={[styles.title, styles.compactTitle, styles.compactStageTitle]}>{compactStageTitle}</Text>}
+              <Text style={[styles.subtitle, styles.compactSubtitle, styles.compactStageSubtitle]}>{compactStageSubtitle}</Text>
+            </View>
+          </View>
+        ) : (
+          <>
+            <Animated.View style={[styles.diceRow, compact && styles.compactDiceRow, { gap: dieGap }, diceRowStyle]}>
+              {[0, 1, 2, 3].map((index) => {
+                const isOn = value !== null && index < value;
 
-        {showNumericResult && <Text style={[styles.title, compact && styles.compactTitle]}>{title}</Text>}
-        <Text style={[styles.subtitle, compact && styles.compactSubtitle, isStage && styles.stageSubtitle]}>{subtitle}</Text>
+                return (
+                  <View key={index} style={[styles.dieWrap, compact && styles.compactDieWrap]}>
+                    <TetrahedralDie isOn={isOn} size={dieSize} />
+                  </View>
+                );
+              })}
+            </Animated.View>
+
+            {showNumericResult && <Text style={[styles.title, compact && styles.compactTitle]}>{title}</Text>}
+            <Text style={[styles.subtitle, compact && styles.compactSubtitle, isStage && styles.stageSubtitle]}>{subtitle}</Text>
+          </>
+        )}
       </View>
     </TouchableOpacity>
   );
@@ -232,7 +259,8 @@ const styles = StyleSheet.create({
     paddingVertical: urTheme.spacing.sm,
   },
   compactStageCard: {
-    minHeight: 122,
+    minHeight: 56,
+    paddingVertical: 7,
   },
   cardActive: {
     backgroundColor: '#5A2E10',
@@ -294,6 +322,26 @@ const styles = StyleSheet.create({
   compactDiceRow: {
     marginBottom: urTheme.spacing.xs,
   },
+  compactStageContent: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  compactStageDiceRow: {
+    marginTop: 0,
+    marginBottom: 0,
+    flexShrink: 0,
+  },
+  compactStageTextWrap: {
+    marginLeft: 8,
+    flex: 1,
+    minWidth: 0,
+  },
+  compactStageDieWrap: {
+    width: 18,
+    height: 18,
+  },
   dieWrap: {
     width: 38,
     height: 38,
@@ -315,6 +363,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     letterSpacing: 0.8,
   },
+  compactStageTitle: {
+    fontSize: 10,
+    lineHeight: 11,
+    letterSpacing: 0.65,
+    textAlign: 'left',
+  },
   subtitle: {
     marginTop: 3,
     color: 'rgba(244, 223, 191, 0.9)',
@@ -324,6 +378,13 @@ const styles = StyleSheet.create({
   compactSubtitle: {
     fontSize: 10,
     marginTop: 2,
+  },
+  compactStageSubtitle: {
+    fontSize: 8,
+    lineHeight: 10,
+    letterSpacing: 0.4,
+    marginTop: 1,
+    textAlign: 'left',
   },
   stageSubtitle: {
     textTransform: 'uppercase',
