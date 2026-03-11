@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { BotDifficulty, DEFAULT_BOT_DIFFICULTY } from '@/logic/bot/types';
 import { GameState, MoveAction, PlayerColor } from '@/logic/types';
 import { createInitialState, getValidMoves, applyMove, rollDice } from '@/logic/engine';
 import { MatchPresenceEvent, Session } from '@heroiclabs/nakama-js';
@@ -12,6 +13,7 @@ interface GameStore {
   gameState: GameState;
   playerId: string;
   playerColor: PlayerColor | null;
+  botDifficulty: BotDifficulty;
   onlineMode: OnlineMode;
   serverRevision: number;
   nakamaSession: Session | null;
@@ -24,8 +26,9 @@ interface GameStore {
   rollCommandSender: RollCommandSender;
   moveCommandSender: MoveCommandSender;
 
-  initGame: (matchId: string) => void;
+  initGame: (matchId: string, options?: { botDifficulty?: BotDifficulty }) => void;
   setMatchId: (matchId: string) => void;
+  setBotDifficulty: (difficulty: BotDifficulty) => void;
   setNakamaSession: (session: Session | null) => void;
   setUserId: (userId: string | null) => void;
   setMatchToken: (matchToken: string | null) => void;
@@ -47,6 +50,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   gameState: createInitialState(),
   playerId: 'light',
   playerColor: null,
+  botDifficulty: DEFAULT_BOT_DIFFICULTY,
   onlineMode: 'offline',
   serverRevision: 0,
   nakamaSession: null,
@@ -59,7 +63,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   rollCommandSender: null,
   moveCommandSender: null,
 
-  initGame: (matchId) => {
+  initGame: (matchId, options) => {
     set({
       matchId,
       gameState: createInitialState(),
@@ -68,6 +72,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       socketState: 'idle',
       serverRevision: 0,
       playerColor: null,
+      botDifficulty: options?.botDifficulty ?? DEFAULT_BOT_DIFFICULTY,
       rollCommandSender: null,
       moveCommandSender: null,
     });
@@ -75,6 +80,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   setMatchId: (matchId) => {
     set({ matchId });
+  },
+
+  setBotDifficulty: (botDifficulty) => {
+    set({ botDifficulty });
   },
 
   setNakamaSession: (session) => {
@@ -159,6 +168,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       rollCommandSender: null,
       moveCommandSender: null,
       playerColor: null,
+      botDifficulty: DEFAULT_BOT_DIFFICULTY,
       onlineMode: 'offline',
       serverRevision: 0,
       nakamaSession: null,

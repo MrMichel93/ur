@@ -1,14 +1,25 @@
 import { Button } from '@/components/ui/Button';
 import { urTheme, urTextures, urTypography } from '@/constants/urTheme';
 import { LobbyMode, useMatchmaking } from '@/hooks/useMatchmaking';
-import { useLocalSearchParams } from 'expo-router';
-import React, { useMemo } from 'react';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useEffect, useMemo } from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 
 export default function Lobby() {
   const { mode: rawMode } = useLocalSearchParams<{ mode?: string }>();
   const mode: LobbyMode = useMemo(() => (rawMode === 'online' ? 'online' : 'bot'), [rawMode]);
+  const router = useRouter();
   const { startMatch, status, errorMessage, onlineCount } = useMatchmaking(mode);
+
+  useEffect(() => {
+    if (mode === 'bot') {
+      router.replace('/(game)/bot');
+    }
+  }, [mode, router]);
+
+  if (mode === 'bot') {
+    return null;
+  }
 
   const handleStart = async () => {
     await startMatch();
@@ -17,14 +28,12 @@ export default function Lobby() {
   const isBusy = status === 'connecting' || status === 'searching';
 
   const buttonTitle = (() => {
-    if (mode === 'bot') return 'Start Game';
     if (status === 'error') return 'Retry Matchmaking';
     if (isBusy) return 'Searching...';
     return 'Find Opponent';
   })();
 
   const statusLabel = (() => {
-    if (mode === 'bot') return 'Play against the ancient strategy engine.';
     switch (status) {
       case 'connecting':
         return 'Connecting to server...';
@@ -183,4 +192,3 @@ const styles = StyleSheet.create({
     color: '#F6AAA2',
   },
 });
-

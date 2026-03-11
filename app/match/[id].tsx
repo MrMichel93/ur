@@ -8,6 +8,7 @@ import { Modal } from '@/components/ui/Modal';
 import { urTheme, urTypography } from '@/constants/urTheme';
 import { hasNakamaConfig, isNakamaEnabled } from '@/config/nakama';
 import { useGameLoop } from '@/hooks/useGameLoop';
+import { DEFAULT_BOT_DIFFICULTY, isBotDifficulty } from '@/logic/bot/types';
 import { BOARD_COLS, BOARD_ROWS } from '@/logic/constants';
 import { PlayerColor } from '@/logic/types';
 import { gameAudio } from '@/services/audio';
@@ -32,13 +33,25 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 const UR_BG_IMAGE = require('../../assets/images/ur_bg.png');
 
 export default function GameRoom() {
-  const { id, offline } = useLocalSearchParams<{ id?: string | string[]; offline?: string | string[] }>();
+  const { id, offline, botDifficulty } = useLocalSearchParams<{
+    id?: string | string[];
+    offline?: string | string[];
+    botDifficulty?: string | string[];
+  }>();
   const router = useRouter();
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
 
   const matchId = useMemo(() => (Array.isArray(id) ? id[0] : id), [id]);
   const offlineParam = useMemo(() => (Array.isArray(offline) ? offline[0] : offline), [offline]);
+  const botDifficultyParam = useMemo(
+    () => (Array.isArray(botDifficulty) ? botDifficulty[0] : botDifficulty),
+    [botDifficulty],
+  );
+  const resolvedBotDifficulty = useMemo(
+    () => (isBotDifficulty(botDifficultyParam) ? botDifficultyParam : DEFAULT_BOT_DIFFICULTY),
+    [botDifficultyParam],
+  );
   const isOffline = useMemo(
     () =>
       offlineParam === '1' ||
@@ -94,10 +107,10 @@ export default function GameRoom() {
   useEffect(() => {
     if (!matchId) return;
     if (isOffline || storedMatchId !== matchId) {
-      initGame(matchId);
+      initGame(matchId, { botDifficulty: resolvedBotDifficulty });
     }
     setMatchId(matchId);
-  }, [initGame, isOffline, matchId, setMatchId, storedMatchId]);
+  }, [initGame, isOffline, matchId, resolvedBotDifficulty, setMatchId, storedMatchId]);
 
   const socketRef = useRef<Socket | null>(null);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);

@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 
 export const useGameLoop = (enabled = true) => {
     const gameState = useGameStore(state => state.gameState);
+    const botDifficulty = useGameStore(state => state.botDifficulty);
     const roll = useGameStore(state => state.roll);
     const makeMove = useGameStore(state => state.makeMove);
 
@@ -26,7 +27,7 @@ export const useGameLoop = (enabled = true) => {
                 // Bot needs to move
                 // Delay for visual effect
                 const timer = setTimeout(() => {
-                    const move = getBotMove(gameState, rollValue!);
+                    const move = getBotMove(gameState, rollValue!, botDifficulty);
                     if (move) {
                         makeMove(move);
                     } else {
@@ -39,5 +40,5 @@ export const useGameLoop = (enabled = true) => {
                 return () => clearTimeout(timer);
             }
         }
-    }, [enabled, gameState.currentTurn, gameState.phase, gameState.rollValue]);
+    }, [botDifficulty, enabled, gameState.currentTurn, gameState.phase, gameState.rollValue]);
 };

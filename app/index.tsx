@@ -29,7 +29,7 @@ export default function Home() {
         <View style={styles.panelBorder} />
 
         <View style={styles.buttonStack}>
-          <Button title="Play Local vs Bot" onPress={() => router.push('/(game)/lobby?mode=bot')} />
+          <Button title="Play Local vs Bot" onPress={() => router.push('/(game)/bot')} />
           <Button title="Online Multiplayer" variant="outline" onPress={() => router.push('/(game)/lobby?mode=online')} />
           <Button title="Watch tutorial" variant="outline" onPress={() => router.push('/tutorial/watch' as never)} />
           <Button title="How to play" variant="secondary" onPress={() => setShowHowToPlay(true)} />

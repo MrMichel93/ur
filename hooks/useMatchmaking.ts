@@ -1,4 +1,5 @@
 import { hasNakamaConfig, isNakamaEnabled } from '@/config/nakama';
+import { BotDifficulty, DEFAULT_BOT_DIFFICULTY } from '@/logic/bot/types';
 import { cancelMatchmaking, findMatch } from '@/services/matchmaking';
 import { getOnlineDeviceCount } from '@/services/presence';
 import { useGameStore } from '@/store/useGameStore';
@@ -12,7 +13,6 @@ export const useMatchmaking = (mode: LobbyMode = 'bot') => {
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [onlineCount, setOnlineCount] = useState<number | null>(null);
     const initGame = useGameStore(state => state.initGame);
-    const setMatchId = useGameStore(state => state.setMatchId);
     const setNakamaSession = useGameStore(state => state.setNakamaSession);
     const setUserId = useGameStore(state => state.setUserId);
     const setMatchToken = useGameStore(state => state.setMatchToken);
@@ -56,16 +56,15 @@ export const useMatchmaking = (mode: LobbyMode = 'bot') => {
         };
     }, []);
 
-    const startBotGame = useCallback(() => {
+    const startBotGame = useCallback((difficulty: BotDifficulty = DEFAULT_BOT_DIFFICULTY) => {
         setOnlineMode('offline');
         const localMatchId = `local-${Date.now()}`;
         setMatchToken(null);
-        setMatchId(localMatchId);
-        initGame(localMatchId);
+        initGame(localMatchId, { botDifficulty: difficulty });
         setSocketState('connected');
         setStatus('matched');
-        router.push(`/match/${localMatchId}?offline=1`);
-    }, [initGame, router, setMatchId, setMatchToken, setOnlineMode, setSocketState]);
+        router.push(`/match/${localMatchId}?offline=1&botDifficulty=${difficulty}`);
+    }, [initGame, router, setMatchToken, setOnlineMode, setSocketState]);
 
     const startOnlineMatch = useCallback(async () => {
         setErrorMessage(null);
@@ -90,7 +89,6 @@ export const useMatchmaking = (mode: LobbyMode = 'bot') => {
             setNakamaSession(result.session);
             setUserId(result.userId);
             setMatchToken(result.matchToken);
-            setMatchId(result.matchId);
             initGame(result.matchId);
             setPlayerColor(result.playerColor);
             setSocketState('connected');
@@ -103,15 +101,15 @@ export const useMatchmaking = (mode: LobbyMode = 'bot') => {
             setStatus('error');
             setSocketState('error');
         }
-    }, [initGame, router, setMatchId, setMatchToken, setNakamaSession, setOnlineMode, setPlayerColor, setSocketState, setUserId]);
+    }, [initGame, router, setMatchToken, setNakamaSession, setOnlineMode, setPlayerColor, setSocketState, setUserId]);
 
-    const startMatch = useCallback(async () => {
+    const startMatch = useCallback(async (difficulty: BotDifficulty = DEFAULT_BOT_DIFFICULTY) => {
         if (mode === 'bot') {
-            startBotGame();
+            startBotGame(difficulty);
         } else {
             await startOnlineMatch();
         }
     }, [mode, startBotGame, startOnlineMatch]);
 
-    return { startMatch, status, errorMessage, onlineCount, mode };
+    return { startMatch, startBotGame, status, errorMessage, onlineCount, mode };
 };

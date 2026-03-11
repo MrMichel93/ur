@@ -36,7 +36,7 @@ const PIECE_SIZE_PRESETS = {
 const PIECE_ART_SOURCES: Record<PieceVariant, ImageSourcePropType> = {
   light: require('../../assets/pieces/piece_light.png'),
   dark: require('../../assets/pieces/piece_dark.png'),
-  reserve: require('../../assets/pieces/piece_reserve.png'),
+  reserve: require('../../assets/pieces/piece_light.png'),
 };
 
 // Tune PNG-only visual fit here for future artwork revisions (e.g. transparent padding changes).
@@ -60,6 +60,13 @@ export const Piece: React.FC<PieceProps> = ({
   const motion = useSharedValue(0);
 
   const resolvedVariant: PieceVariant = variant ?? color;
+  const resolvedSource = useMemo(() => {
+    if (resolvedVariant === 'reserve') {
+      return color === 'dark' ? PIECE_ART_SOURCES.dark : PIECE_ART_SOURCES.light;
+    }
+
+    return PIECE_ART_SOURCES[resolvedVariant];
+  }, [color, resolvedVariant]);
 
   useEffect(() => {
     intro.value = withSpring(1, urTheme.motion.spring.game);
@@ -168,7 +175,7 @@ export const Piece: React.FC<PieceProps> = ({
       />
       <View style={[styles.artFrame, { width: sizePx, height: sizePx }]}>
         <Image
-          source={PIECE_ART_SOURCES[resolvedVariant]}
+          source={resolvedSource}
           resizeMode="contain"
           style={[
             styles.artImage,
