@@ -738,7 +738,14 @@ export const Board: React.FC<BoardProps> = ({
           rowCells.push(
             <View
               key={`gap-${displayRow}-${displayCol}`}
-              style={[styles.gapCell, { width: `${100 / displayCols}%`, padding: tileShellPadding }]}
+              style={[
+                styles.gapCell,
+                {
+                  width: boardLayout.cellSize,
+                  height: boardLayout.cellSize,
+                  padding: tileShellPadding,
+                },
+              ]}
             />,
           );
           continue;
@@ -769,7 +776,14 @@ export const Board: React.FC<BoardProps> = ({
         rowCells.push(
           <View
             key={`cell-${displayRow}-${displayCol}`}
-            style={[styles.cellShell, { width: `${100 / displayCols}%`, padding: tileShellPadding }]}
+            style={[
+              styles.cellShell,
+              {
+                width: boardLayout.cellSize,
+                height: boardLayout.cellSize,
+                padding: tileShellPadding,
+              },
+            ]}
           >
             <Tile
               row={r}
