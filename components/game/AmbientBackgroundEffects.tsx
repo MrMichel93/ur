@@ -195,7 +195,11 @@ const SPIDER_LEG_ANGLES_BOTTOM = [42, 22, -18, -38] as const;
 
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
 
-const lerp = (start: number, end: number, progress: number) => start + (end - start) * progress;
+const lerp = (start: number, end: number, progress: number) => {
+  'worklet';
+
+  return start + (end - start) * progress;
+};
 
 const randomBetween = (min: number, max: number) => min + Math.random() * (max - min);
 
