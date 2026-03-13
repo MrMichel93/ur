@@ -52,7 +52,7 @@ const MATCH_AMBIENT_EFFECTS = {
 const TOP_CHROME_ACCENT = '#C89820';
 const TOP_CHROME_BORDER = urTheme.colors.cedar;
 // Tune these until the match layer exposes a real server-backed turn clock.
-const VISUAL_TURN_TIMER_DURATION_MS = 18_000;
+const VISUAL_TURN_TIMER_DURATION_MS = 20_000;
 const VISUAL_TURN_TIMER_WARNING_THRESHOLD = 0.22;
 
 interface BoardTargetFrame {
@@ -93,6 +93,8 @@ export default function GameRoom() {
 
   const gameState = useGameStore((state) => state.gameState);
   const roll = useGameStore((state) => state.roll);
+  const makeMove = useGameStore((state) => state.makeMove);
+  const validMoves = useGameStore((state) => state.validMoves);
   const reset = useGameStore((state) => state.reset);
   const userId = useGameStore((state) => state.userId);
   const playerColor = useGameStore((state) => state.playerColor);
@@ -139,6 +141,8 @@ export default function GameRoom() {
   const boardImageLayoutRef = useRef<BoardImageLayoutFrame | null>(null);
   const rollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const scoreBannerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const turnTimeoutTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const forceMoveAfterRollRef = useRef(false);
   const previousTurnTimerStateRef = useRef<{
     matchId: string | null;
     currentTurn: PlayerColor;
@@ -232,6 +236,68 @@ export default function GameRoom() {
 
     previousTurnTimerStateRef.current = nextSnapshot;
   }, [gameState.currentTurn, gameState.phase, matchId]);
+
+  useEffect(() => {
+    if (turnTimeoutTimerRef.current) {
+      clearTimeout(turnTimeoutTimerRef.current);
+      turnTimeoutTimerRef.current = null;
+    }
+
+    if (!isMyTurn || gameState.winner !== null || gameState.phase === 'ended') {
+      forceMoveAfterRollRef.current = false;
+      return;
+    }
+
+    turnTimeoutTimerRef.current = setTimeout(() => {
+      const { gameState: liveState, playerColor: localPlayerColor, validMoves: liveValidMoves } = useGameStore.getState();
+      const isLocalTurn =
+        localPlayerColor !== null &&
+        liveState.currentTurn === localPlayerColor &&
+        liveState.winner === null &&
+        liveState.phase !== 'ended';
+
+      if (!isLocalTurn) {
+        forceMoveAfterRollRef.current = false;
+        return;
+      }
+
+      if (liveState.phase === 'rolling') {
+        forceMoveAfterRollRef.current = true;
+        useGameStore.getState().roll();
+        return;
+      }
+
+      if (liveState.phase === 'moving' && liveValidMoves.length > 0) {
+        forceMoveAfterRollRef.current = false;
+        useGameStore.getState().makeMove(liveValidMoves[0]);
+      }
+    }, VISUAL_TURN_TIMER_DURATION_MS);
+
+    return () => {
+      if (turnTimeoutTimerRef.current) {
+        clearTimeout(turnTimeoutTimerRef.current);
+        turnTimeoutTimerRef.current = null;
+      }
+    };
+  }, [gameState.phase, gameState.winner, isMyTurn, turnTimerCycleId]);
+
+  useEffect(() => {
+    if (!forceMoveAfterRollRef.current) {
+      return;
+    }
+
+    if (!isMyTurn || gameState.winner !== null || gameState.phase === 'ended') {
+      forceMoveAfterRollRef.current = false;
+      return;
+    }
+
+    if (gameState.phase !== 'moving' || validMoves.length === 0) {
+      return;
+    }
+
+    forceMoveAfterRollRef.current = false;
+    makeMove(validMoves[0]);
+  }, [gameState.phase, gameState.winner, isMyTurn, makeMove, validMoves]);
 
   useEffect(() => {
     if (!matchId) return;
