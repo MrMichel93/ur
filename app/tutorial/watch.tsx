@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/Button';
 import { boxShadow, textShadow } from '@/constants/styleEffects';
 import { urTheme, urTypography } from '@/constants/urTheme';
 import { BOARD_COLS, BOARD_ROWS } from '@/logic/constants';
-import { buildTutorialFrames, describeTutorialActionStep } from '@/tutorials/tutorialEngine';
+import { buildTutorialFrames } from '@/tutorials/tutorialEngine';
 import { TutorialStep, TutorialTeachingStep, TutorialUiTarget } from '@/tutorials/tutorialTypes';
 import { WATCH_TUTORIAL_SCRIPT } from '@/tutorials/watchTutorialScript';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
@@ -157,14 +157,6 @@ export default function WatchTutorialScreen() {
     return () => clearTimeout(timer);
   }, [speed, stepIndex]);
 
-  const recentTutorialLog = React.useMemo(() => {
-    const entries: string[] = [];
-    for (let index = 0; index < stepIndex; index += 1) {
-      const entry = describeTutorialActionStep(WATCH_TUTORIAL_SCRIPT[index]);
-      if (entry) entries.push(entry);
-    }
-    return entries.slice(-5).reverse();
-  }, [stepIndex]);
 
   if (!tutorialBuild.frames || !currentFrame) {
     return (
@@ -411,18 +403,6 @@ export default function WatchTutorialScreen() {
                     showNumericResult={!compactSupportPanels}
                   />
                 </View>
-                <View style={[styles.historyStrip, highlight('log') && styles.focusWrapActive]}>
-                  <Text style={styles.historyTitle}>Tutorial Log</Text>
-                  {recentTutorialLog.length === 0 ? (
-                    <Text style={styles.historyEntryMuted}>Replay ready. Press Play to start.</Text>
-                  ) : (
-                    recentTutorialLog.map((entry, index) => (
-                      <Text key={`${entry}-${index}`} style={styles.historyEntry}>
-                        {entry}
-                      </Text>
-                    ))
-                  )}
-                </View>
               </View>
             </View>
           ) : (
@@ -504,19 +484,6 @@ export default function WatchTutorialScreen() {
                     onRestart={handleRestart}
                     onToggleSpeed={() => setSpeed((prev) => (prev === 1 ? 2 : 1))}
                   />
-                </View>
-
-                <View style={[styles.historyStrip, highlight('log') && styles.focusWrapActive]}>
-                  <Text style={styles.historyTitle}>Tutorial Log</Text>
-                  {recentTutorialLog.length === 0 ? (
-                    <Text style={styles.historyEntryMuted}>Replay ready. Press Play to start.</Text>
-                  ) : (
-                    recentTutorialLog.map((entry, index) => (
-                      <Text key={`${entry}-${index}`} style={styles.historyEntry}>
-                        {entry}
-                      </Text>
-                    ))
-                  )}
                 </View>
               </View>
             </View>
@@ -685,32 +652,7 @@ const styles = StyleSheet.create({
     }),
     backgroundColor: 'rgba(111, 184, 255, 0.05)',
   },
-  historyStrip: {
-    width: '100%',
-    borderRadius: urTheme.radii.md,
-    borderWidth: 1,
-    borderColor: 'rgba(217, 164, 65, 0.44)',
-    backgroundColor: 'rgba(9, 14, 20, 0.7)',
-    paddingHorizontal: urTheme.spacing.md,
-    paddingVertical: urTheme.spacing.sm,
-    overflow: 'hidden',
-    gap: 4,
-  },
-  historyTitle: {
-    ...urTypography.label,
-    fontSize: 11,
-    color: urTheme.colors.parchment,
-  },
-  historyEntry: {
-    color: 'rgba(239, 228, 208, 0.88)',
-    fontSize: 12,
-    lineHeight: 17,
-  },
-  historyEntryMuted: {
-    color: 'rgba(239, 228, 208, 0.64)',
-    fontSize: 12,
-    lineHeight: 17,
-  },
+
   headerHelpButton: {
     minHeight: 34,
     paddingHorizontal: 12,

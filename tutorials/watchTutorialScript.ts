@@ -88,7 +88,7 @@ export const WATCH_TUTORIAL_SCRIPT: TutorialStep[] = [
         'A roll of 0 means no movement, so the turn passes automatically.',
       ],
       [
-        'Watch the dice result, the turn banner, and the history/log together to confirm what happened.',
+        'Watch the dice result and the turn banner together to confirm what happened.',
         'Sometimes a roll above 0 can still fail if every move is blocked, overshoots, or is illegal.',
       ],
       'Do not panic on low rolls or zeroes; plan for averages and use safe squares to absorb bad luck.',
