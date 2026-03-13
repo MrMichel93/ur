@@ -17,7 +17,7 @@ import Animated, {
 const STAGE_ROLL_BUTTON_WIDTH_SCALE = 1.2;
 const STAGE_ROLL_BUTTON_HEIGHT_SCALE = 0.8;
 const STAGE_ROLL_SCENE_SCALE = 0.92;
-const MOBILE_DICE_SCALE = 1.2;
+const MOBILE_DICE_SCALE = 1.44;
 
 interface DiceProps {
   value: number | null;
