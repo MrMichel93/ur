@@ -38,6 +38,7 @@ export const Dice: React.FC<DiceProps> = ({
   compact = false,
 }) => {
   const { width } = useWindowDimensions();
+  const isMobileWidth = width < 760;
   const readiness = useSharedValue(canRoll ? 0.4 : 0);
   const wasRollingRef = useRef(false);
   const [showThreeRollScene, setShowThreeRollScene] = useState(false);
@@ -76,6 +77,9 @@ export const Dice: React.FC<DiceProps> = ({
   }));
 
   const isSceneRolling = showThreeRollScene && scenePlaybackId > 0;
+  const shouldHoldSettledDice = value !== null && !isSceneRolling;
+  const sceneVariant = isSceneRolling ? 'animated' : shouldHoldSettledDice ? 'settled' : 'start';
+  const renderedPlaybackId = sceneVariant === 'start' ? scenePlaybackId + 1 : Math.max(scenePlaybackId, 1);
   const title = isSceneRolling ? 'Casting...' : value !== null ? `Result: ${value}` : 'Cast The Dice';
   const subtitle = isSceneRolling
     ? 'The astragali are in motion'
@@ -85,8 +89,9 @@ export const Dice: React.FC<DiceProps> = ({
 
   const isStage = mode === 'stage';
   const isCompactStage = compact && isStage;
+  const isMobileCompactStage = isCompactStage && isMobileWidth;
   const isLaptopUp = width >= 1024;
-  const sceneBaseSize = isCompactStage ? 0.78 : compact ? 1.06 : 1.32;
+  const sceneBaseSize = isCompactStage ? (isMobileCompactStage ? 0.64 : 0.78) : compact ? 1.06 : 1.32;
   const sceneSize = sceneBaseSize * (isStage ? STAGE_ROLL_SCENE_SCALE : 1);
   const compactStageTitle = isSceneRolling ? 'Casting...' : value !== null ? `Result ${value}` : 'Cast Dice';
   const compactStageSubtitle = isSceneRolling ? 'Rolling' : canRoll ? 'Tap to roll' : 'Wait turn';
@@ -94,10 +99,10 @@ export const Dice: React.FC<DiceProps> = ({
   const renderDiceVisual = (sceneStyle?: StyleProp<ViewStyle>) => (
     <View pointerEvents="none" style={[styles.rollSceneViewport, sceneStyle]}>
       <DiceRollScene
-        playbackId={isSceneRolling ? scenePlaybackId : scenePlaybackId + 1}
+        playbackId={renderedPlaybackId}
         durationMs={DEFAULT_DICE_ROLL_DURATION_MS}
         size={sceneSize}
-        variant={isSceneRolling ? 'animated' : 'start'}
+        variant={sceneVariant}
         onComplete={() => {
           setShowThreeRollScene(false);
         }}
@@ -110,7 +115,7 @@ export const Dice: React.FC<DiceProps> = ({
       onPress={onRoll}
       disabled={!canRoll || rolling}
       activeOpacity={0.9}
-      style={[styles.touchable, isStage && styles.stageTouchable]}
+      style={[styles.touchable, isStage && styles.stageTouchable, isMobileCompactStage && styles.mobileStageTouchable]}
     >
       <View
         style={[
@@ -127,13 +132,38 @@ export const Dice: React.FC<DiceProps> = ({
         <Animated.View style={[styles.readyHalo, readinessStyle]} />
 
         {isCompactStage ? (
-          <View style={styles.compactStageContent}>
+          <View style={[styles.compactStageContent, isMobileCompactStage && styles.mobileCompactStageContent]}>
             <View style={[styles.diceRow, styles.compactDiceRow, styles.compactStageDiceRow]}>
-              {renderDiceVisual(styles.compactStageRollSceneViewport)}
+              {renderDiceVisual([
+                styles.compactStageRollSceneViewport,
+                isMobileCompactStage && styles.mobileCompactStageRollSceneViewport,
+              ])}
             </View>
-            <View style={styles.compactStageTextWrap}>
-              {showNumericResult && <Text style={[styles.title, styles.compactTitle, styles.compactStageTitle]}>{compactStageTitle}</Text>}
-              <Text style={[styles.subtitle, styles.compactSubtitle, styles.compactStageSubtitle]}>{compactStageSubtitle}</Text>
+            <View style={[styles.compactStageTextWrap, isMobileCompactStage && styles.mobileCompactStageTextWrap]}>
+              {showNumericResult && (
+                <Text
+                  numberOfLines={1}
+                  style={[
+                    styles.title,
+                    styles.compactTitle,
+                    styles.compactStageTitle,
+                    isMobileCompactStage && styles.mobileCompactStageTitle,
+                  ]}
+                >
+                  {compactStageTitle}
+                </Text>
+              )}
+              <Text
+                numberOfLines={1}
+                style={[
+                  styles.subtitle,
+                  styles.compactSubtitle,
+                  styles.compactStageSubtitle,
+                  isMobileCompactStage && styles.mobileCompactStageSubtitle,
+                ]}
+              >
+                {compactStageSubtitle}
+              </Text>
             </View>
           </View>
         ) : (
@@ -168,6 +198,10 @@ const styles = StyleSheet.create({
   stageTouchable: {
     width: '120%',
     alignSelf: 'center',
+  },
+  mobileStageTouchable: {
+    width: '100%',
+    alignSelf: 'stretch',
   },
   card: {
     borderRadius: urTheme.radii.md,
@@ -269,6 +303,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    minWidth: 0,
+  },
+  mobileCompactStageContent: {
+    justifyContent: 'flex-start',
   },
   compactStageDiceRow: {
     marginTop: 0,
@@ -279,10 +317,18 @@ const styles = StyleSheet.create({
     width: Math.round(118 * STAGE_ROLL_BUTTON_WIDTH_SCALE),
     height: Math.round(48 * STAGE_ROLL_BUTTON_HEIGHT_SCALE),
   },
+  mobileCompactStageRollSceneViewport: {
+    width: 108,
+    height: 42,
+  },
   compactStageTextWrap: {
     marginLeft: 8,
     flex: 1,
     minWidth: 0,
+    overflow: 'hidden',
+  },
+  mobileCompactStageTextWrap: {
+    marginLeft: 4,
   },
   title: {
     color: '#F6E6CC',
@@ -305,6 +351,11 @@ const styles = StyleSheet.create({
     letterSpacing: 0.65,
     textAlign: 'left',
   },
+  mobileCompactStageTitle: {
+    fontSize: 9,
+    lineHeight: 10,
+    letterSpacing: 0.5,
+  },
   subtitle: {
     marginTop: 3,
     color: 'rgba(244, 223, 191, 0.9)',
@@ -321,6 +372,11 @@ const styles = StyleSheet.create({
     letterSpacing: 0.4,
     marginTop: 1,
     textAlign: 'left',
+  },
+  mobileCompactStageSubtitle: {
+    fontSize: 7,
+    lineHeight: 9,
+    letterSpacing: 0.3,
   },
   stageSubtitle: {
     textTransform: 'uppercase',

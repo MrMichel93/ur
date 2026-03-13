@@ -118,6 +118,7 @@ export default function GameRoom() {
   const [showWinModal, setShowWinModal] = React.useState(false);
   const [showHowToPlay, setShowHowToPlay] = React.useState(false);
   const [showAudioSettings, setShowAudioSettings] = React.useState(false);
+  const [showTopMenu, setShowTopMenu] = React.useState(false);
   const [rollingVisual, setRollingVisual] = React.useState(false);
   const [showScoreBanner, setShowScoreBanner] = React.useState(false);
   const [musicEnabled, setMusicEnabled] = React.useState(true);
@@ -180,6 +181,14 @@ export default function GameRoom() {
       setShowWinModal(true);
     }
   }, [gameState.winner]);
+
+  useEffect(() => {
+    if (!showHowToPlay && !showAudioSettings && !showWinModal) {
+      return;
+    }
+
+    setShowTopMenu(false);
+  }, [showAudioSettings, showHowToPlay, showWinModal]);
 
   useEffect(() => {
     boardImageLayoutRef.current = null;
@@ -504,6 +513,7 @@ export default function GameRoom() {
   };
 
   const handleExit = () => {
+    setShowTopMenu(false);
     if (!isOffline && socketRef.current && matchId) {
       void socketRef.current.leaveMatch(matchId).catch(() => { });
       nakamaService.disconnectSocket(true);
@@ -708,32 +718,51 @@ export default function GameRoom() {
 
         <View style={styles.topChromeRight}>
           <Pressable
-            onPress={() => setShowHowToPlay(true)}
+            onPress={() => setShowTopMenu((current) => !current)}
             accessibilityRole="button"
-            accessibilityLabel="Open how to play instructions"
+            accessibilityLabel="Open match menu"
             style={({ pressed }) => [
-              styles.headerHelpButton,
+              styles.topChromeIconButton,
               isMobileLayout && styles.headerHelpButtonMobile,
               pressed && styles.headerHelpButtonPressed,
             ]}
           >
-            <Text style={[styles.headerHelpLabel, isMobileLayout && styles.headerHelpLabelMobile]}>Help</Text>
+            <MaterialIcons name="more-vert" size={20} color={TOP_CHROME_ACCENT} />
           </Pressable>
 
-          <Pressable
-            onPress={() => setShowAudioSettings(true)}
-            accessibilityRole="button"
-            accessibilityLabel="Open audio settings"
-            style={({ pressed }) => [
-              styles.headerHelpButton,
-              isMobileLayout && styles.headerHelpButtonMobile,
-              pressed && styles.headerHelpButtonPressed,
-            ]}
-          >
-            <Text style={[styles.headerHelpLabel, isMobileLayout && styles.headerHelpLabelMobile]}>Settings</Text>
-          </Pressable>
+          {showTopMenu && (
+            <View style={styles.topMenu}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Open how to play instructions"
+                onPress={() => {
+                  setShowTopMenu(false);
+                  setShowHowToPlay(true);
+                }}
+                style={({ pressed }) => [styles.topMenuItem, pressed && styles.topMenuItemPressed]}
+              >
+                <MaterialIcons name="help-outline" size={18} color={TOP_CHROME_ACCENT} />
+                <Text style={styles.topMenuLabel}>Help</Text>
+              </Pressable>
+
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Open audio settings"
+                onPress={() => {
+                  setShowTopMenu(false);
+                  setShowAudioSettings(true);
+                }}
+                style={({ pressed }) => [styles.topMenuItem, pressed && styles.topMenuItemPressed]}
+              >
+                <MaterialIcons name="settings" size={18} color={TOP_CHROME_ACCENT} />
+                <Text style={styles.topMenuLabel}>Settings</Text>
+              </Pressable>
+            </View>
+          )}
         </View>
       </View>
+
+      {showTopMenu && <Pressable style={styles.topMenuScrim} onPress={() => setShowTopMenu(false)} />}
 
       <View
         style={[
@@ -915,6 +944,9 @@ export default function GameRoom() {
         <BoardDropIntro
           targetFrame={boardTargetFrame}
           boardSource={BOARD_IMAGE_SOURCE}
+          onImpactLead={() => {
+            void gameAudio.play('boardImpact');
+          }}
           onComplete={() => {
             setShowBoardDropIntro(false);
             setHasPlayedBoardDropIntro(true);
@@ -1014,8 +1046,8 @@ const styles = StyleSheet.create({
     gap: urTheme.spacing.xs,
   },
   topChromeRight: {
-    gap: urTheme.spacing.xs,
-    alignItems: 'stretch',
+    position: 'relative',
+    alignItems: 'flex-end',
     flexShrink: 0,
   },
   topChromeIconButton: {
@@ -1137,14 +1169,46 @@ const styles = StyleSheet.create({
   headerHelpButtonPressed: {
     opacity: 0.8,
   },
-  headerHelpLabel: {
-    ...urTypography.label,
-    color: TOP_CHROME_ACCENT,
-    fontSize: 11,
-    letterSpacing: 0.8,
+  topMenuScrim: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 6,
   },
-  headerHelpLabelMobile: {
-    color: TOP_CHROME_ACCENT,
+  topMenu: {
+    position: 'absolute',
+    top: 40,
+    right: 0,
+    width: 170,
+    padding: urTheme.spacing.xs,
+    borderRadius: urTheme.radii.md,
+    borderWidth: 1.4,
+    borderColor: 'rgba(214, 167, 84, 0.74)',
+    backgroundColor: 'rgba(44, 24, 13, 0.97)',
+    overflow: 'hidden',
+    ...boxShadow({
+      color: '#000',
+      opacity: 0.34,
+      offset: { width: 0, height: 10 },
+      blurRadius: 16,
+      elevation: 10,
+    }),
+  },
+  topMenuItem: {
+    minHeight: 40,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: urTheme.spacing.sm,
+    borderRadius: urTheme.radii.sm,
+    paddingHorizontal: urTheme.spacing.sm,
+    paddingVertical: urTheme.spacing.xs,
+  },
+  topMenuItemPressed: {
+    backgroundColor: 'rgba(217, 164, 65, 0.14)',
+  },
+  topMenuLabel: {
+    ...urTypography.label,
+    color: '#F3DFC2',
+    fontSize: 11,
+    letterSpacing: 0.7,
   },
   boardCard: {
     width: '100%',

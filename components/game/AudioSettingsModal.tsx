@@ -49,7 +49,7 @@ export const AudioSettingsModal: React.FC<AudioSettingsModalProps> = ({
           <View style={styles.optionRow}>
             <View style={styles.copyWrap}>
               <Text style={styles.optionTitle}>Sound Effects</Text>
-              <Text style={styles.optionHint}>Rolls, captures, scores, and tray drops</Text>
+              <Text style={styles.optionHint}>Board drops, rolls, captures, scores, and tray drops</Text>
             </View>
             <Switch
               value={sfxEnabled}

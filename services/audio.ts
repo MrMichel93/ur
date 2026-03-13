@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AudioPlayer, createAudioPlayer, setAudioModeAsync, setIsAudioActiveAsync } from 'expo-audio';
 import { Platform } from 'react-native';
 
-type AudioEvent = 'bgm' | 'roll' | 'move' | 'score' | 'capture' | 'win' | 'lose' | 'tray';
+type AudioEvent = 'bgm' | 'roll' | 'move' | 'score' | 'capture' | 'win' | 'lose' | 'tray' | 'boardImpact';
 type StandardAudioEvent = Exclude<AudioEvent, 'roll'>;
 type AudioPreferences = {
   musicEnabled: boolean;
@@ -31,6 +31,7 @@ const AUDIO_SOURCES: Record<StandardAudioEvent, number> = {
   win: selectSfxSource(require('../assets/audio/sfx/win.ogg'), require('../assets/audio/sfx/win.m4a')),
   lose: selectSfxSource(require('../assets/audio/sfx/lose.ogg'), require('../assets/audio/sfx/lose.m4a')),
   tray: selectSfxSource(require('../assets/audio/sfx/drop.ogg'), require('../assets/audio/sfx/drop.m4a')),
+  boardImpact: require('../assets/audio/sfx/thump.mp3'),
 };
 /* eslint-enable @typescript-eslint/no-require-imports */
 
@@ -43,6 +44,7 @@ const AUDIO_VOLUMES: Record<AudioEvent, number> = {
   win: 0.88,
   lose: 0.86,
   tray: 0.5,
+  boardImpact: 0.9,
 };
 
 const AUDIO_POLYPHONY: Record<StandardAudioEvent, number> = {
@@ -53,6 +55,7 @@ const AUDIO_POLYPHONY: Record<StandardAudioEvent, number> = {
   win: 1,
   lose: 1,
   tray: 6,
+  boardImpact: 1,
 };
 
 class GameAudio {

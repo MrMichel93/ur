@@ -8,7 +8,7 @@ export interface DiceRollSceneContentProps {
   durationMs?: number;
   onComplete?: () => void;
   size?: number;
-  variant?: 'animated' | 'start';
+  variant?: 'animated' | 'start' | 'settled';
 }
 
 export const DEFAULT_DICE_ROLL_DURATION_MS = 2250;
@@ -180,7 +180,7 @@ type AnimatedDiceSetProps = {
   durationMs: number;
   onComplete?: () => void;
   size: number;
-  variant: 'animated' | 'start';
+  variant: 'animated' | 'start' | 'settled';
 };
 
 const AnimatedDiceSet: React.FC<AnimatedDiceSetProps> = ({ playbackId, durationMs, onComplete, size, variant }) => {
@@ -268,7 +268,10 @@ const AnimatedDiceSet: React.FC<AnimatedDiceSetProps> = ({ playbackId, durationM
         return;
       }
 
-      const localProgress = clamp((progress - config.delay) / (1 - config.delay * 0.78), 0, 1);
+      const localProgress =
+        variant === 'settled'
+          ? 1
+          : clamp((progress - config.delay) / (1 - config.delay * 0.78), 0, 1);
       const settleY = config.landing[1] + DIE_HALF_EXTENT * DIE_SCALE * size + DIE_GROUND_CLEARANCE;
       const travelProgress =
         localProgress < impactProgress
