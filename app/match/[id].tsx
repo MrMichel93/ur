@@ -713,6 +713,7 @@ export default function GameRoom() {
 
   const shouldHideReservePieces = !hasPlayedReserveCascadeIntro;
   const isVisualTurnTimerRunning = gameState.phase !== 'ended' && gameState.winner === null;
+  const displayedValidMoves = rollingVisual ? [] : validMoves;
 
   useEffect(() => {
     if (hasPlayedBoardDropIntro || showBoardDropIntro) return;
@@ -751,6 +752,7 @@ export default function GameRoom() {
         <Board
           showRailHints
           highlightMode="theatrical"
+          validMovesOverride={displayedValidMoves}
           boardScale={boardScale}
           orientation="vertical"
           onBoardImageLayout={handleLiveBoardImageLayout}
