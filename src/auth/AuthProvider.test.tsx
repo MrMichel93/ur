@@ -38,6 +38,7 @@ jest.mock('./guestAuth', () => ({
 jest.mock('./googleAuth', () => ({
   useGoogleAuth: () => ({
     isReady: true,
+    isProcessing: false,
     login: mockGoogleLogin,
     redirectUri: 'https://example.com/oauthredirect',
   }),

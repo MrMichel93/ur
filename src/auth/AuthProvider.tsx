@@ -13,56 +13,100 @@ import { clearSession, loadSession, saveSession } from './sessionStorage';
 export const AuthProvider: React.FC<PropsWithChildren> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const { login: loginWithGoogleRequest } = useGoogleAuth();
+  const [hasInitialized, setHasInitialized] = useState(false);
+  const { login: loginWithGoogleRequest, isProcessing: isGoogleAuthProcessing } = useGoogleAuth();
 
+  const hydrateSession = useCallback(async () => {
+    try {
+      const loaded = await loadSession();
+      if (!loaded) {
+        return null;
+      }
+
+      if (loaded.nakamaSessionToken && loaded.nakamaRefreshToken) {
+        try {
+          const restored = Session.restore(loaded.nakamaSessionToken, loaded.nakamaRefreshToken);
+
+          if (restored.isexpired(Date.now() / 1000)) {
+            if (restored.refresh_token) {
+              const refreshed = await nakamaService.getClient().sessionRefresh(restored);
+              await saveSession(loaded.user, refreshed.token, refreshed.refresh_token);
+            } else {
+              await clearSession();
+              return null;
+            }
+          }
+        } catch (error) {
+          console.error('Failed to restore Nakama session:', error);
+          await clearSession();
+          return null;
+        }
+      }
+
+      return loaded.user;
+    } catch (error) {
+      console.error('Failed to hydrate session:', error);
+      return null;
+    }
+  }, []);
+
+  // Initial session hydration on mount
   useEffect(() => {
     let isMounted = true;
 
-    const hydrateSession = async () => {
-      try {
-        const loaded = await loadSession();
-        if (!loaded || !isMounted) {
-          return;
-        }
-
-        if (loaded.nakamaSessionToken && loaded.nakamaRefreshToken) {
-          try {
-            const restored = Session.restore(loaded.nakamaSessionToken, loaded.nakamaRefreshToken);
-
-            if (restored.isexpired(Date.now() / 1000)) {
-              if (restored.refresh_token) {
-                const refreshed = await nakamaService.getClient().sessionRefresh(restored);
-                await saveSession(loaded.user, refreshed.token, refreshed.refresh_token);
-              } else {
-                await clearSession();
-                return;
-              }
-            }
-          } catch (error) {
-            console.error('Failed to restore Nakama session:', error);
-            await clearSession();
-            return;
-          }
-        }
-
-        if (isMounted) {
-          setUser(loaded.user);
-        }
-      } catch (error) {
-        console.error('Failed to hydrate session:', error);
-      } finally {
-        if (isMounted) {
-          setIsLoading(false);
-        }
+    const initialize = async () => {
+      const restoredUser = await hydrateSession();
+      if (isMounted) {
+        setUser(restoredUser);
+        setIsLoading(false);
+        setHasInitialized(true);
       }
     };
 
-    void hydrateSession();
+    void initialize();
 
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [hydrateSession]);
+
+  // When Google auth finishes processing (after redirect), reload session
+  // Only runs during initial load, not after manual logout
+  useEffect(() => {
+    if (hasInitialized && !isGoogleAuthProcessing && !user && isLoading) {
+      let isMounted = true;
+
+      const checkForNewSession = async () => {
+        const restoredUser = await hydrateSession();
+        if (restoredUser && isMounted) {
+          setUser(restoredUser);
+        }
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      };
+
+      void checkForNewSession();
+
+      return () => {
+        isMounted = false;
+      };
+    }
+  }, [hasInitialized, isGoogleAuthProcessing, user, isLoading, hydrateSession]);
+
+  // Safety timeout: ensure loading state clears after reasonable time
+  useEffect(() => {
+    if (!isLoading) {
+      return;
+    }
+
+    const timeout = setTimeout(() => {
+      console.warn('Authentication loading timeout - forcing loading state to clear');
+      setIsLoading(false);
+    }, 15000); // 15 second timeout
+
+    return () => clearTimeout(timeout);
+  }, [isLoading]);
 
   const loginAsGuest = useCallback(async () => {
     try {
@@ -76,12 +120,16 @@ export const AuthProvider: React.FC<PropsWithChildren> = ({ children }) => {
 
   const loginWithGoogle = useCallback(async () => {
     try {
+      // On web with redirects, this promise may never resolve (component unmounts)
+      // The session will be saved by useGoogleAuth and picked up by the effect monitoring isGoogleAuthProcessing
       const result = await loginWithGoogleRequest();
 
       if (!result) {
+        // User cancelled
         return;
       }
 
+      // This only runs if we get a direct result (non-redirect flow)
       await saveSession(result.user, result.nakamaSession.token, result.nakamaSession.refresh_token);
       setUser(result.user);
     } catch (error) {

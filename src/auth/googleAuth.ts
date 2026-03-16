@@ -7,6 +7,7 @@ import { Platform } from 'react-native';
 
 import { nakamaService } from '@/services/nakama';
 import { User } from '@/src/types/user';
+import { saveSession } from './sessionStorage';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -112,20 +113,33 @@ export const useGoogleAuth = () => {
   }, []);
 
   useEffect(() => {
-    if (!response || !pendingLoginRef.current) {
+    if (!response) {
       return;
     }
 
+    // Handle cancellation
     if (response.type === 'cancel' || response.type === 'dismiss') {
-      settlePendingLogin((pending) => pending.resolve(null));
+      if (pendingLoginRef.current) {
+        settlePendingLogin((pending) => pending.resolve(null));
+      }
+      setIsProcessing(false);
       return;
     }
 
+    // Handle error
     if (response.type !== 'success') {
-      settlePendingLogin((pending) => pending.reject(new Error(getGoogleAuthErrorMessage(response))));
+      const errorMessage = getGoogleAuthErrorMessage(response);
+      if (pendingLoginRef.current) {
+        settlePendingLogin((pending) => pending.reject(new Error(errorMessage)));
+      } else {
+        // On redirect return with error, surface to console
+        console.error('Google OAuth error:', errorMessage);
+      }
+      setIsProcessing(false);
       return;
     }
 
+    // Handle success - works both with and without pending ref
     let isCancelled = false;
 
     const finalizeGoogleLogin = async () => {
@@ -156,20 +170,37 @@ export const useGoogleAuth = () => {
           return;
         }
 
-        settlePendingLogin((pending) =>
-          pending.resolve({
-            user: mapGoogleUser(profile, nakamaAccount.user?.id),
-            idToken,
-            accessToken,
-            nakamaSession,
-          })
-        );
+        const user = mapGoogleUser(profile, nakamaAccount.user?.id);
+        const authResult: GoogleAuthResult = {
+          user,
+          idToken,
+          accessToken,
+          nakamaSession,
+        };
+
+        // Save session for both scenarios
+        await saveSession(user, nakamaSession.token, nakamaSession.refresh_token);
+
+        // If we have a pending promise (normal flow), resolve it
+        if (pendingLoginRef.current) {
+          settlePendingLogin((pending) => pending.resolve(authResult));
+        } else {
+          // Redirect scenario - session is saved, AuthProvider will pick it up
+          setIsProcessing(false);
+        }
       } catch (error) {
         if (isCancelled) {
           return;
         }
 
-        settlePendingLogin((pending) => pending.reject(resolveGoogleAuthError(error)));
+        const authError = resolveGoogleAuthError(error);
+        if (pendingLoginRef.current) {
+          settlePendingLogin((pending) => pending.reject(authError));
+        } else {
+          // On redirect return with error, surface to console and clear processing
+          console.error('Google authentication failed:', authError);
+          setIsProcessing(false);
+        }
       }
     };
 
@@ -225,6 +256,7 @@ export const useGoogleAuth = () => {
 
   return {
     isReady: Platform.OS === 'web' ? Boolean(request && GOOGLE_WEB_CLIENT_ID) && !isProcessing : true,
+    isProcessing,
     login,
     redirectUri: GOOGLE_REDIRECT_URI,
   };
