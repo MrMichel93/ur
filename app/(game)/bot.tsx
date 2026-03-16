@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/Button';
+import { MobileBackground, useMobileBackground } from '@/components/ui/MobileBackground';
 import { MIN_WIDE_WEB_BACKGROUND_WIDTH, WideScreenBackground } from '@/components/ui/WideScreenBackground';
 import { boxShadow } from '@/constants/styleEffects';
 import { urTheme, urTextures, urTypography } from '@/constants/urTheme';
@@ -9,6 +10,7 @@ import React from 'react';
 import { Image, Platform, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 
 const botWideBackground = require('../../assets/images/bot_bg.png');
+const botMobileBackground = require('../../assets/images/bot_bg_mobile.png');
 
 type BotLevelCard = {
   difficulty: BotDifficulty;
@@ -60,6 +62,7 @@ export default function BotSelection() {
   const [pendingDifficulty, setPendingDifficulty] = React.useState<BotDifficulty | null>(null);
   const isCompactLayout = width < 820;
   const showWideBackground = Platform.OS === 'web' && width >= MIN_WIDE_WEB_BACKGROUND_WIDTH;
+  const showMobileBackground = useMobileBackground();
 
   const handleSelect = (difficulty: BotDifficulty) => {
     setPendingDifficulty(difficulty);
@@ -73,10 +76,15 @@ export default function BotSelection() {
         visible={showWideBackground}
         overlayColor="rgba(8, 10, 15, 0.22)"
       />
+      <MobileBackground
+        source={botMobileBackground}
+        visible={showMobileBackground}
+        overlayColor="rgba(8, 10, 15, 0.26)"
+      />
       <Image
         source={urTextures.woodDark}
         resizeMode="repeat"
-        style={[styles.texture, showWideBackground && styles.textureWide]}
+        style={[styles.texture, (showWideBackground || showMobileBackground) && styles.textureWide]}
       />
       <View style={styles.topGlow} />
       <View style={styles.bottomShade} />
