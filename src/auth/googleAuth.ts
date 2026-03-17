@@ -2,7 +2,7 @@ import * as AuthSession from 'expo-auth-session';
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
 import { Session } from '@heroiclabs/nakama-js';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 
 import { nakamaService } from '@/services/nakama';
@@ -86,15 +86,29 @@ const fetchGoogleUserInfo = async (accessToken: string): Promise<GoogleUserInfo>
   return payload;
 };
 
+// Generates a one-time nonce for the id_token request.
+// Must be stable per hook mount (not regenerated on re-render) so the value
+// sent in the auth request matches what we read back from the response.
+const generateNonce = (): string =>
+  `${Date.now().toString(36)}-${Math.random().toString(36).substring(2)}`;
+
 export const useGoogleAuth = () => {
+  // Stable per mount — regenerates only when the hook is remounted (i.e. new login attempt after unmount).
+  const nonce = useMemo(() => generateNonce(), []);
+
   const [request, response, promptAsync] = Google.useAuthRequest({
     clientId: GOOGLE_WEB_CLIENT_ID ?? 'missing-google-client-id',
     webClientId: GOOGLE_WEB_CLIENT_ID,
     iosClientId: GOOGLE_IOS_CLIENT_ID,
     androidClientId: GOOGLE_ANDROID_CLIENT_ID,
     redirectUri: GOOGLE_REDIRECT_URI,
-    responseType: AuthSession.ResponseType.Code,
+    // 'token id_token' is the OAuth hybrid implicit flow:
+    // returns both tokens directly in the redirect URL hash — no code exchange,
+    // no client_secret needed. Required for web SPA (Google "Web application" client
+    // type blocks server-side code exchange from a browser).
+    responseType: 'token id_token' as AuthSession.ResponseType,
     scopes: ['openid', 'profile', 'email'],
+    extraParams: { nonce },
   });
   const [isProcessing, setIsProcessing] = useState(false);
   const pendingLoginRef = useRef<PendingGoogleLogin | null>(null);
