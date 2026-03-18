@@ -15,7 +15,7 @@ services:
       - "5432:5432"
 
   nakama:
-    image: heroiclabs/nakama:3.22.0
+    image: heroiclabs/nakama:3.37.0
     container_name: ur-nakama
     restart: unless-stopped
     depends_on:
