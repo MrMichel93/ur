@@ -1000,41 +1000,54 @@ var writeChallengeProgressObject = (nk, userId, progress, version) => {
   ]);
 };
 var ensureChallengeDefinitions = (nk, logger) => {
-  const existingObjects = nk.storageRead(
-    CHALLENGE_DEFINITIONS.map((definition) => ({
-      collection: CHALLENGE_DEFINITIONS_COLLECTION,
-      key: definition.id
-    }))
-  );
-  const writes = CHALLENGE_DEFINITIONS.flatMap((definition) => {
-    var _a;
-    const existing = findStorageObject(existingObjects, CHALLENGE_DEFINITIONS_COLLECTION, definition.id);
-    const stored = getStorageObjectValue(existing);
-    if (stored && isChallengeDefinition(stored)) {
-      const storedDefinition = stored;
-      if (storedDefinition.name === definition.name && storedDefinition.description === definition.description && storedDefinition.type === definition.type && storedDefinition.rewardXp === definition.rewardXp) {
-        return [];
-      }
-    }
-    const value = __spreadProps(__spreadValues({}, definition), {
-      syncedAt: (/* @__PURE__ */ new Date()).toISOString()
-    });
-    return [
-      {
+  for (let attempt = 1; attempt <= MAX_WRITE_ATTEMPTS; attempt += 1) {
+    const existingObjects = nk.storageRead(
+      CHALLENGE_DEFINITIONS.map((definition) => ({
         collection: CHALLENGE_DEFINITIONS_COLLECTION,
-        key: definition.id,
-        value,
-        version: existing ? (_a = getStorageObjectVersion(existing)) != null ? _a : "" : "*",
-        permissionRead: STORAGE_PERMISSION_NONE,
-        permissionWrite: STORAGE_PERMISSION_NONE
+        key: definition.id
+      }))
+    );
+    const writes = CHALLENGE_DEFINITIONS.flatMap((definition) => {
+      var _a;
+      const existing = findStorageObject(existingObjects, CHALLENGE_DEFINITIONS_COLLECTION, definition.id);
+      const stored = getStorageObjectValue(existing);
+      if (stored && isChallengeDefinition(stored)) {
+        const storedDefinition = stored;
+        if (storedDefinition.name === definition.name && storedDefinition.description === definition.description && storedDefinition.type === definition.type && storedDefinition.rewardXp === definition.rewardXp) {
+          return [];
+        }
       }
-    ];
-  });
-  if (writes.length === 0) {
-    return;
+      const value = __spreadProps(__spreadValues({}, definition), {
+        syncedAt: (/* @__PURE__ */ new Date()).toISOString()
+      });
+      return [
+        {
+          collection: CHALLENGE_DEFINITIONS_COLLECTION,
+          key: definition.id,
+          value,
+          version: existing ? (_a = getStorageObjectVersion(existing)) != null ? _a : "" : "*",
+          permissionRead: STORAGE_PERMISSION_NONE,
+          permissionWrite: STORAGE_PERMISSION_NONE
+        }
+      ];
+    });
+    if (writes.length === 0) {
+      return;
+    }
+    try {
+      nk.storageWrite(writes);
+      logger.info("Synchronized %d challenge definitions into Nakama storage.", writes.length);
+      return;
+    } catch (error) {
+      logger.warn(
+        "Challenge definition sync attempt %d/%d failed: %s",
+        attempt,
+        MAX_WRITE_ATTEMPTS,
+        getErrorMessage(error)
+      );
+    }
   }
-  nk.storageWrite(writes);
-  logger.info("Synchronized %d challenge definitions into Nakama storage.", writes.length);
+  throw new Error("Unable to synchronize challenge definitions into Nakama storage.");
 };
 var ensureUserChallengeProgress = (nk, logger, userId) => {
   var _a;
