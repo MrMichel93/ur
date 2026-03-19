@@ -32,6 +32,10 @@ jest.mock('@/components/progression/ProgressionSummaryCard', () => ({
   ProgressionSummaryCard: () => null,
 }));
 
+jest.mock('@/components/challenges/ChallengeSummaryCard', () => ({
+  ChallengeSummaryCard: () => null,
+}));
+
 jest.mock('@/components/ui/Button', () => ({
   Button: ({ title, onPress }: { title: string; onPress?: () => void }) => {
     const React = jest.requireActual('react');

@@ -35,6 +35,8 @@ export const getUserProgression = async (): Promise<ProgressionRpcResponse> => {
   return payload;
 };
 
+export const getUserXpProgress = getUserProgression;
+
 export const stripProgressionAwardEnvelope = (
   payload: ProgressionAwardNotificationPayload
 ) => {
