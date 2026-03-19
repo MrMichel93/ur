@@ -30,7 +30,7 @@ export const createInitialState = (): GameState => ({
 export const rollDice = (): number => {
     let sum = 0;
     for (let i = 0; i < 4; i++) {
-        if (Math.random() > 0.5) sum++;
+        if (Math.random() >= 0.5) sum++;
     }
     return sum;
 };

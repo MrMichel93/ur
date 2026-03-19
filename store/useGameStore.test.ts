@@ -158,6 +158,19 @@ describe('useGameStore', () => {
     expect(state.gameState.history[state.gameState.history.length - 1]).toBe('light rolled 0 but had no moves.');
   });
 
+  it('offline roll() with no valid moves does not mutate the prior state history by reference', () => {
+    jest.useFakeTimers();
+    mockedRollDice.mockReturnValue(0);
+
+    useGameStore.getState().roll();
+    const movingState = useGameStore.getState().gameState;
+
+    jest.advanceTimersByTime(1000);
+
+    expect(movingState.history).toEqual([]);
+    expect(useGameStore.getState().gameState.history).toEqual(['light rolled 0 but had no moves.']);
+  });
+
   it('offline makeMove() in moving phase applies the move and clears validMoves', () => {
     const gameState = makeState({ phase: 'moving', rollValue: 1 });
     const validMove = engine.getValidMoves(gameState, 1)[0] as MoveAction;

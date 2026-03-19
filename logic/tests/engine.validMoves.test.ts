@@ -50,6 +50,30 @@ describe('engine getValidMoves', () => {
     expect(moves.some(move => move.pieceId === player.pieces[0].id && move.toIndex === 5)).toBe(false);
   });
 
+  it('allows jumping over a friendly piece when the destination is open', () => {
+    const state = createInitialState();
+    const player = state.light;
+    state.currentTurn = 'light';
+
+    player.pieces.forEach(piece => {
+      piece.position = -1;
+      piece.isFinished = true;
+    });
+
+    player.pieces[0].isFinished = false;
+    player.pieces[0].position = 0;
+    player.pieces[1].isFinished = false;
+    player.pieces[1].position = 1;
+
+    const moves = getValidMoves(state, 2);
+
+    expect(moves).toContainEqual({
+      pieceId: player.pieces[0].id,
+      fromIndex: 0,
+      toIndex: 2,
+    });
+  });
+
   it('collapses duplicate reserve-origin moves to a single move', () => {
     const state = createInitialState();
 

@@ -211,11 +211,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     if (validMoves.length === 0) {
       setTimeout(() => {
-        const skippedState: GameState = { ...nextState };
-        skippedState.currentTurn = skippedState.currentTurn === 'light' ? 'dark' : 'light';
-        skippedState.phase = 'rolling';
-        skippedState.rollValue = null;
-        skippedState.history.push(`${gameState.currentTurn} rolled ${rollValue} but had no moves.`);
+        const skippedState: GameState = {
+          ...nextState,
+          currentTurn: nextState.currentTurn === 'light' ? 'dark' : 'light',
+          phase: 'rolling',
+          rollValue: null,
+          history: [...nextState.history, `${gameState.currentTurn} rolled ${rollValue} but had no moves.`],
+        };
 
         set({ gameState: skippedState, validMoves: [] });
       }, 1000);
