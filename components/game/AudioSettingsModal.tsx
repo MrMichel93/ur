@@ -1,7 +1,12 @@
 import { Button } from '@/components/ui/Button';
 import { boxShadow } from '@/constants/styleEffects';
 import { urTheme, urTextures, urTypography } from '@/constants/urTheme';
-import type { DiceAnimationSpeed } from '@/services/matchPreferences';
+import {
+  DEFAULT_MATCH_PREFERENCES,
+  TURN_TIMER_SECONDS_OPTIONS,
+  type DiceAnimationSpeed,
+  type TurnTimerSeconds,
+} from '@/services/matchPreferences';
 import React from 'react';
 import {
   Image,
@@ -21,9 +26,13 @@ const DICE_SPEED_OPTIONS: ReadonlyArray<{ label: string; value: DiceAnimationSpe
   { label: '1.25x', value: 1.25 },
   { label: '1.5x', value: 1.5 },
 ];
+const TURN_TIMER_OPTIONS: ReadonlyArray<{ label: string; value: TurnTimerSeconds }> = TURN_TIMER_SECONDS_OPTIONS.map(
+  (option) => ({ label: `${option}s`, value: option }),
+);
 
 interface AudioSettingsModalProps {
   visible: boolean;
+  announcementCuesEnabled: boolean;
   musicEnabled: boolean;
   musicVolume: number;
   sfxEnabled: boolean;
@@ -33,8 +42,10 @@ interface AudioSettingsModalProps {
   bugAnimationEnabled: boolean;
   autoRollEnabled: boolean;
   timerEnabled?: boolean;
+  timerDurationSeconds: TurnTimerSeconds;
   showTimerToggle?: boolean;
   onClose: () => void;
+  onToggleAnnouncementCues: (enabled: boolean) => void;
   onToggleMusic: (enabled: boolean) => void;
   onSetMusicVolume: (volume: number) => void;
   onToggleSfx: (enabled: boolean) => void;
@@ -43,6 +54,7 @@ interface AudioSettingsModalProps {
   onSetDiceAnimationSpeed: (speed: DiceAnimationSpeed) => void;
   onToggleBugAnimation: (enabled: boolean) => void;
   onToggleAutoRoll: (enabled: boolean) => void;
+  onSetTimerDuration: (seconds: TurnTimerSeconds) => void;
   onToggleTimer?: (enabled: boolean) => void;
 }
 
@@ -135,6 +147,7 @@ const ChoiceSettingRow = <T extends string | number,>({
 
 export const AudioSettingsModal: React.FC<AudioSettingsModalProps> = ({
   visible,
+  announcementCuesEnabled,
   musicEnabled,
   musicVolume,
   sfxEnabled,
@@ -144,8 +157,10 @@ export const AudioSettingsModal: React.FC<AudioSettingsModalProps> = ({
   bugAnimationEnabled,
   autoRollEnabled,
   timerEnabled = true,
+  timerDurationSeconds = DEFAULT_MATCH_PREFERENCES.timerDurationSeconds,
   showTimerToggle = false,
   onClose,
+  onToggleAnnouncementCues,
   onToggleMusic,
   onSetMusicVolume,
   onToggleSfx,
@@ -154,6 +169,7 @@ export const AudioSettingsModal: React.FC<AudioSettingsModalProps> = ({
   onSetDiceAnimationSpeed,
   onToggleBugAnimation,
   onToggleAutoRoll,
+  onSetTimerDuration,
   onToggleTimer,
 }) => (
   <RNModal transparent visible={visible} animationType="fade" onRequestClose={onClose}>
@@ -245,6 +261,22 @@ export const AudioSettingsModal: React.FC<AudioSettingsModalProps> = ({
               onValueChange={onToggleTimer}
             />
           ) : null}
+
+          <ChoiceSettingRow
+            title="Turn Timer Length"
+            hint="Choose how long the match countdown runs before timeout assistance steps in"
+            value={timerDurationSeconds}
+            valueLabel={`${timerDurationSeconds}s`}
+            options={TURN_TIMER_OPTIONS}
+            onValueChange={onSetTimerDuration}
+          />
+
+          <ToggleSettingRow
+            title="Announcement Cues"
+            hint="Show prompts like Your Turn, Roll Again, and Time's up during the match"
+            value={announcementCuesEnabled}
+            onValueChange={onToggleAnnouncementCues}
+          />
         </ScrollView>
 
         <View style={styles.buttonWrap}>

@@ -231,10 +231,12 @@ jest.mock('@/services/audio', () => ({
 
 jest.mock('@/services/matchPreferences', () => ({
   DEFAULT_MATCH_PREFERENCES: {
+    announcementCuesEnabled: true,
     autoRollEnabled: false,
     bugAnimationEnabled: true,
     diceAnimationEnabled: true,
     diceAnimationSpeed: 1,
+    timerDurationSeconds: 20,
     timerEnabled: true,
   },
   getMatchPreferences: (...args: unknown[]) => mockGetMatchPreferences(...args),
@@ -294,17 +296,21 @@ describe('GameRoom match dice stage', () => {
     delete mockSearchParams.tutorial;
     delete mockSearchParams.botDifficulty;
     mockGetMatchPreferences.mockResolvedValue({
+      announcementCuesEnabled: true,
       autoRollEnabled: false,
       bugAnimationEnabled: true,
       diceAnimationEnabled: true,
       diceAnimationSpeed: 1,
+      timerDurationSeconds: 20,
       timerEnabled: true,
     });
     mockUpdateMatchPreferences.mockResolvedValue({
+      announcementCuesEnabled: true,
       autoRollEnabled: false,
       bugAnimationEnabled: true,
       diceAnimationEnabled: true,
       diceAnimationSpeed: 1,
+      timerDurationSeconds: 20,
       timerEnabled: true,
     });
     mockStoreState.gameState = {
@@ -388,10 +394,12 @@ describe('GameRoom match dice stage', () => {
 
   it('auto-rolls after the configured delay when automatic rolling is enabled', async () => {
     mockGetMatchPreferences.mockResolvedValue({
+      announcementCuesEnabled: true,
       autoRollEnabled: true,
       bugAnimationEnabled: true,
       diceAnimationEnabled: true,
       diceAnimationSpeed: 1,
+      timerDurationSeconds: 20,
       timerEnabled: true,
     });
 

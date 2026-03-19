@@ -1,3 +1,4 @@
+import { textShadow } from '@/constants/styleEffects';
 import { urTheme, urTypography } from '@/constants/urTheme';
 import { HourglassTimer } from '@/components/timer/HourglassTimer';
 import { useFonts } from 'expo-font';
@@ -165,12 +166,17 @@ const styles = StyleSheet.create({
   },
   timerCountdown: {
     ...urTypography.title,
-    color: urTheme.colors.parchment,
+    color: urTheme.colors.gold,
     fontSize: 21,
     lineHeight: 24,
     letterSpacing: 0.7,
     minWidth: 34,
-    textAlign: 'left',
+    textAlign: 'center',
+    ...textShadow({
+      color: '#050403',
+      offset: { width: 0, height: 1 },
+      blurRadius: 2,
+    }),
   },
   compactTimerCountdown: {
     fontSize: 18,

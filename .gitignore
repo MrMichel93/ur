@@ -16,3 +16,7 @@ dist/
 .env.*
 !.env.example
 backend/deploy/env.production
+
+backend/deploy/Caddyfile
+backend/nakama.yml
+

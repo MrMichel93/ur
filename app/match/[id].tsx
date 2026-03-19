@@ -36,6 +36,7 @@ import {
   DEFAULT_MATCH_PREFERENCES,
   getMatchPreferences,
   type DiceAnimationSpeed,
+  type TurnTimerSeconds,
   updateMatchPreferences,
 } from '@/services/matchPreferences';
 import { nakamaService } from '@/services/nakama';
@@ -88,8 +89,6 @@ const MATCH_AMBIENT_EFFECTS = {
 } as const;
 const TOP_CHROME_ACCENT = '#C89820';
 const TOP_CHROME_BORDER = urTheme.colors.cedar;
-// Tune these until the match layer exposes a real server-backed turn clock.
-const VISUAL_TURN_TIMER_DURATION_MS = 20_000;
 const VISUAL_TURN_TIMER_WARNING_THRESHOLD = 0.22;
 const MATCH_CUE_FONT_FAMILY = 'CinzelDecorativeBold';
 const HOURGLASS_HEIGHT_RATIO = 156 / 100;
@@ -267,7 +266,13 @@ export function GameRoom() {
   const [musicVolume, setMusicVolume] = React.useState(1);
   const [sfxEnabled, setSfxEnabled] = React.useState(true);
   const [sfxVolume, setSfxVolume] = React.useState(1);
+  const [announcementCuesEnabled, setAnnouncementCuesEnabled] = React.useState(
+    DEFAULT_MATCH_PREFERENCES.announcementCuesEnabled,
+  );
   const [botTimerEnabled, setBotTimerEnabled] = React.useState(DEFAULT_MATCH_PREFERENCES.timerEnabled);
+  const [turnTimerSeconds, setTurnTimerSeconds] = React.useState<TurnTimerSeconds>(
+    DEFAULT_MATCH_PREFERENCES.timerDurationSeconds,
+  );
   const [diceAnimationEnabled, setDiceAnimationEnabled] = React.useState(DEFAULT_MATCH_PREFERENCES.diceAnimationEnabled);
   const [diceAnimationSpeed, setDiceAnimationSpeed] = React.useState<DiceAnimationSpeed>(
     DEFAULT_MATCH_PREFERENCES.diceAnimationSpeed,
@@ -368,6 +373,7 @@ export function GameRoom() {
     () => Math.max(400, Math.round(DEFAULT_DICE_ROLL_DURATION_MS / diceAnimationSpeed)),
     [diceAnimationSpeed],
   );
+  const visualTurnTimerDurationMs = turnTimerSeconds * 1000;
 
   const clearRollTimer = React.useCallback(() => {
     if (rollTimerRef.current) {
@@ -519,6 +525,10 @@ export function GameRoom() {
 
   const enqueueMatchCue = React.useCallback(
     (kind: MatchMomentCueKind) => {
+      if (!announcementCuesEnabled) {
+        return;
+      }
+
       const now = Date.now();
       const previousCue = lastQueuedMatchCueRef.current;
 
@@ -550,7 +560,7 @@ export function GameRoom() {
 
       queuedMatchCuesRef.current.push(cue);
     },
-    [matchId, setLiveMatchCue],
+    [announcementCuesEnabled, matchId, setLiveMatchCue],
   );
 
   const handleMatchCueHidden = React.useCallback(
@@ -564,6 +574,16 @@ export function GameRoom() {
     },
     [setLiveMatchCue],
   );
+
+  useEffect(() => {
+    if (announcementCuesEnabled) {
+      return;
+    }
+
+    queuedMatchCuesRef.current = [];
+    lastQueuedMatchCueRef.current = null;
+    setLiveMatchCue(null);
+  }, [announcementCuesEnabled, setLiveMatchCue]);
 
   const syncBoardTargetFrame = React.useCallback(() => {
     const boardImageLayout = boardImageLayoutRef.current;
@@ -968,7 +988,7 @@ export function GameRoom() {
         forceMoveAfterRollRef.current = false;
         useGameStore.getState().makeMove(liveValidMoves[0]);
       }
-    }, VISUAL_TURN_TIMER_DURATION_MS);
+    }, visualTurnTimerDurationMs);
 
     return () => {
       if (turnTimeoutTimerRef.current) {
@@ -986,6 +1006,7 @@ export function GameRoom() {
     isScriptedTutorialPhase,
     triggerLocalRoll,
     turnTimerCycleId,
+    visualTurnTimerDurationMs,
   ]);
   useEffect(() => {
     if (autoRollTimerRef.current) {
@@ -1300,7 +1321,9 @@ export function GameRoom() {
       setMusicVolume(audioPreferences.musicVolume);
       setSfxEnabled(audioPreferences.sfxEnabled);
       setSfxVolume(audioPreferences.sfxVolume);
+      setAnnouncementCuesEnabled(matchPreferences.announcementCuesEnabled);
       setBotTimerEnabled(matchPreferences.timerEnabled);
+      setTurnTimerSeconds(matchPreferences.timerDurationSeconds);
       setDiceAnimationEnabled(matchPreferences.diceAnimationEnabled);
       setDiceAnimationSpeed(matchPreferences.diceAnimationSpeed);
       setBugAnimationEnabled(matchPreferences.bugAnimationEnabled);
@@ -1488,6 +1511,11 @@ export function GameRoom() {
     await gameAudio.setSfxVolume(volume);
   };
 
+  const handleToggleAnnouncementCues = async (enabled: boolean) => {
+    setAnnouncementCuesEnabled(enabled);
+    await updateMatchPreferences({ announcementCuesEnabled: enabled });
+  };
+
   const handleToggleDiceAnimation = async (enabled: boolean) => {
     setDiceAnimationEnabled(enabled);
     await updateMatchPreferences({ diceAnimationEnabled: enabled });
@@ -1517,6 +1545,12 @@ export function GameRoom() {
     }
 
     await updateMatchPreferences({ timerEnabled: enabled });
+  };
+
+  const handleSetTurnTimerDuration = async (seconds: TurnTimerSeconds) => {
+    setTurnTimerSeconds(seconds);
+    setTurnTimerCycleId((current) => current + 1);
+    await updateMatchPreferences({ timerDurationSeconds: seconds });
   };
 
   const handleExit = () => {
@@ -1615,6 +1649,7 @@ export function GameRoom() {
   const webCountdownFontSize = showWebSideDiceVisual
     ? Math.max(34, Math.round(webRollButtonSize * 0.38))
     : 0;
+  const webRollResultFontSize = Math.round(webCountdownFontSize * 1.69);
   const mobileWebDiceVisualFrame = useMemo(() => {
     if (!isMobileWebLayout || !boardTargetFrame) {
       return null;
@@ -1950,7 +1985,7 @@ export function GameRoom() {
                   phase={gameState.phase}
                   compact
                   layout="inline"
-                  timerDurationMs={VISUAL_TURN_TIMER_DURATION_MS}
+                  timerDurationMs={visualTurnTimerDurationMs}
                   timerIsRunning={isVisualTurnTimerRunning}
                   timerKey={turnTimerCycleId}
                   timerWarningThreshold={VISUAL_TURN_TIMER_WARNING_THRESHOLD}
@@ -1987,13 +2022,13 @@ export function GameRoom() {
                         styles.webRollResultValue,
                         {
                           fontFamily: rollResultFontFamily,
-                          fontSize: webCountdownFontSize,
+                          fontSize: webRollResultFontSize,
                           lineHeight: webRollButtonSize,
                         },
                         !showWebRollResult && styles.webRollResultValueMuted,
                       ]}
                     >
-                      {showWebRollResult ? String(gameState.rollValue) : '-'}
+                      {showWebRollResult ? String(gameState.rollValue) : ''}
                     </Text>
                   </View>
                 ) : null}
@@ -2013,7 +2048,7 @@ export function GameRoom() {
                     canRoll={canRoll}
                     phase={gameState.phase}
                     compact={compactSupportUi}
-                    timerDurationMs={VISUAL_TURN_TIMER_DURATION_MS}
+                    timerDurationMs={visualTurnTimerDurationMs}
                     timerIsRunning={isVisualTurnTimerRunning}
                     timerKey={turnTimerCycleId}
                     timerWarningThreshold={VISUAL_TURN_TIMER_WARNING_THRESHOLD}
@@ -2027,7 +2062,7 @@ export function GameRoom() {
                       phase={gameState.phase}
                       compact
                       layout="inline"
-                      timerDurationMs={VISUAL_TURN_TIMER_DURATION_MS}
+                      timerDurationMs={visualTurnTimerDurationMs}
                       timerIsRunning={isVisualTurnTimerRunning}
                       timerKey={turnTimerCycleId}
                       timerWarningThreshold={VISUAL_TURN_TIMER_WARNING_THRESHOLD}
@@ -2312,6 +2347,7 @@ export function GameRoom() {
 
       <AudioSettingsModal
         visible={showAudioSettings}
+        announcementCuesEnabled={announcementCuesEnabled}
         musicEnabled={musicEnabled}
         musicVolume={musicVolume}
         sfxEnabled={sfxEnabled}
@@ -2321,8 +2357,12 @@ export function GameRoom() {
         bugAnimationEnabled={bugAnimationEnabled}
         autoRollEnabled={autoRollEnabled}
         timerEnabled={botTimerEnabled}
+        timerDurationSeconds={turnTimerSeconds}
         showTimerToggle={isOffline}
         onClose={() => setShowAudioSettings(false)}
+        onToggleAnnouncementCues={(enabled) => {
+          void handleToggleAnnouncementCues(enabled);
+        }}
         onToggleMusic={(enabled) => {
           void handleToggleMusic(enabled);
         }}
@@ -2346,6 +2386,9 @@ export function GameRoom() {
         }}
         onToggleAutoRoll={(enabled) => {
           void handleToggleAutoRoll(enabled);
+        }}
+        onSetTimerDuration={(seconds) => {
+          void handleSetTurnTimerDuration(seconds);
         }}
         onToggleTimer={(enabled) => {
           void handleToggleBotTimer(enabled);
@@ -2559,10 +2602,15 @@ const styles = StyleSheet.create({
   },
   mobileRollResultValue: {
     color: urTheme.colors.ivory,
-    fontSize: 28,
-    lineHeight: 30,
+    fontSize: 47,
+    lineHeight: 51,
     letterSpacing: 0.5,
     textAlign: 'center',
+    ...textShadow({
+      color: '#050403',
+      offset: { width: 0, height: 1 },
+      blurRadius: 2,
+    }),
   },
   mobileBottomDiceDock: {
     width: '100%',
@@ -2591,9 +2639,14 @@ const styles = StyleSheet.create({
     color: urTheme.colors.ivory,
     minWidth: 0,
     textAlign: 'center',
+    ...textShadow({
+      color: '#050403',
+      offset: { width: 0, height: 1 },
+      blurRadius: 2,
+    }),
   },
   webRollResultValueMuted: {
-    opacity: 0.22,
+    opacity: 0.58,
   },
   webUnderTrayControl: {
     width: '100%',

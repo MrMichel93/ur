@@ -76,12 +76,6 @@ export default function LoginScreen() {
             disabled={pendingAction !== null}
             onPress={handleGoogleLogin}
           />
-          <Button
-            title="Sign up with Google"
-            variant="outline"
-            disabled={pendingAction !== null}
-            onPress={handleGoogleLogin}
-          />
         </View>
 
         <Text style={styles.helperText}>

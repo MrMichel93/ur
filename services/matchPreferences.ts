@@ -1,14 +1,18 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export const DICE_ANIMATION_SPEED_OPTIONS = [0.75, 1, 1.25, 1.5] as const;
+export const TURN_TIMER_SECONDS_OPTIONS = [10, 20, 30] as const;
 
 export type DiceAnimationSpeed = (typeof DICE_ANIMATION_SPEED_OPTIONS)[number];
+export type TurnTimerSeconds = (typeof TURN_TIMER_SECONDS_OPTIONS)[number];
 
 export type MatchPreferences = {
+  announcementCuesEnabled: boolean;
   autoRollEnabled: boolean;
   bugAnimationEnabled: boolean;
   diceAnimationEnabled: boolean;
   diceAnimationSpeed: DiceAnimationSpeed;
+  timerDurationSeconds: TurnTimerSeconds;
   timerEnabled: boolean;
 };
 
@@ -16,10 +20,12 @@ const MATCH_PREFERENCES_KEY = 'ur.match.preferences';
 const LEGACY_BOT_MATCH_PREFERENCES_KEY = 'ur.bot.match.preferences';
 
 export const DEFAULT_MATCH_PREFERENCES: MatchPreferences = {
+  announcementCuesEnabled: true,
   autoRollEnabled: false,
   bugAnimationEnabled: true,
   diceAnimationEnabled: true,
   diceAnimationSpeed: 1,
+  timerDurationSeconds: 20,
   timerEnabled: true,
 };
 
@@ -37,14 +43,26 @@ const normalizeDiceAnimationSpeed = (value: unknown): DiceAnimationSpeed => {
   );
 };
 
+const normalizeTurnTimerSeconds = (value: unknown): TurnTimerSeconds => {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return DEFAULT_MATCH_PREFERENCES.timerDurationSeconds;
+  }
+
+  return TURN_TIMER_SECONDS_OPTIONS.reduce((closest, candidate) =>
+    Math.abs(candidate - value) < Math.abs(closest - value) ? candidate : closest,
+  );
+};
+
 const normalizeMatchPreferences = (
   preferences: Partial<MatchPreferences> | null | undefined,
   legacyTimerEnabled = DEFAULT_MATCH_PREFERENCES.timerEnabled,
 ): MatchPreferences => ({
+  announcementCuesEnabled: preferences?.announcementCuesEnabled ?? DEFAULT_MATCH_PREFERENCES.announcementCuesEnabled,
   autoRollEnabled: preferences?.autoRollEnabled ?? DEFAULT_MATCH_PREFERENCES.autoRollEnabled,
   bugAnimationEnabled: preferences?.bugAnimationEnabled ?? DEFAULT_MATCH_PREFERENCES.bugAnimationEnabled,
   diceAnimationEnabled: preferences?.diceAnimationEnabled ?? DEFAULT_MATCH_PREFERENCES.diceAnimationEnabled,
   diceAnimationSpeed: normalizeDiceAnimationSpeed(preferences?.diceAnimationSpeed),
+  timerDurationSeconds: normalizeTurnTimerSeconds(preferences?.timerDurationSeconds),
   timerEnabled: preferences?.timerEnabled ?? legacyTimerEnabled,
 });
 
