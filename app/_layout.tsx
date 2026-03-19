@@ -2,6 +2,7 @@ import { hasNakamaConfig, isNakamaEnabled } from '@/config/nakama';
 import { urTheme } from '@/constants/urTheme';
 import { sendPresenceHeartbeat } from '@/services/presence';
 import { AuthProvider } from '@/src/auth/AuthProvider';
+import { ChallengesProvider } from '@/src/challenges/ChallengesContext';
 import { ProgressionProvider } from '@/src/progression/ProgressionContext';
 import { useAuth } from '@/src/auth/useAuth';
 import { Stack } from 'expo-router';
@@ -62,6 +63,7 @@ function RootNavigator() {
         }}
       >
         <Stack.Screen name="index" options={{ title: 'Royal Game of Ur', headerShown: false }} />
+        <Stack.Screen name="challenges" options={{ title: 'Challenges' }} />
         <Stack.Screen name="(game)" options={{ headerShown: false }} />
         <Stack.Screen name="match" options={{ headerShown: false }} />
         <Stack.Screen name="tutorial" options={{ headerShown: false }} />
@@ -76,7 +78,9 @@ export default function Layout() {
     <SafeAreaProvider initialMetrics={initialWindowMetrics}>
       <AuthProvider>
         <ProgressionProvider>
-          <RootNavigator />
+          <ChallengesProvider>
+            <RootNavigator />
+          </ChallengesProvider>
         </ProgressionProvider>
       </AuthProvider>
     </SafeAreaProvider>

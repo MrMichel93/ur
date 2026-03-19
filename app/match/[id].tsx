@@ -8,6 +8,8 @@ import { AudioSettingsModal } from '@/components/game/AudioSettingsModal';
 import { AmbientBackgroundEffects } from '@/components/game/AmbientBackgroundEffects';
 import { BoardDropIntro } from '@/components/game/BoardDropIntro';
 import { DEFAULT_DICE_ROLL_DURATION_MS } from '@/components/3d/DiceRollScene.shared';
+import { MatchChallengeRewardsPanel } from '@/components/challenges/MatchChallengeRewardsPanel';
+import { XPDisplay } from '@/components/challenges/XPDisplay';
 import { Dice, DiceStageVisual } from '@/components/game/Dice';
 import { EdgeScore } from '@/components/game/EdgeScore';
 import { GameStageHUD } from '@/components/game/GameStageHUD';
@@ -30,6 +32,8 @@ import { gameAudio } from '@/services/audio';
 import { getBotMatchPreferences, setBotTimerEnabled as persistBotTimerEnabled } from '@/services/botMatchPreferences';
 import { nakamaService } from '@/services/nakama';
 import { stripProgressionAwardEnvelope } from '@/services/progression';
+import { buildMatchChallengeRewardSummary, type MatchChallengeRewardSummary } from '@/src/challenges/challengeUi';
+import { useChallenges } from '@/src/challenges/useChallenges';
 import { useProgression } from '@/src/progression/useProgression';
 import { useGameStore } from '@/store/useGameStore';
 import { isProgressionAwardNotificationPayload } from '@/shared/progression';
@@ -184,7 +188,12 @@ export function GameRoom() {
   const setSocketState = useGameStore((state) => state.setSocketState);
   const setRollCommandSender = useGameStore((state) => state.setRollCommandSender);
   const setMoveCommandSender = useGameStore((state) => state.setMoveCommandSender);
-  const { progression } = useProgression();
+  const { progression, refresh: refreshProgression, errorMessage: progressionError } = useProgression();
+  const {
+    definitions: challengeDefinitions,
+    progress: challengeProgress,
+    refresh: refreshChallenges,
+  } = useChallenges();
 
   const hasAssignedColor = playerColor === 'light' || playerColor === 'dark';
   const effectiveMatchToken = storedMatchId === matchId ? matchToken : null;
@@ -199,6 +208,9 @@ export function GameRoom() {
   const [showHowToPlay, setShowHowToPlay] = React.useState(false);
   const [showAudioSettings, setShowAudioSettings] = React.useState(false);
   const [showTopMenu, setShowTopMenu] = React.useState(false);
+  const [matchChallengeSummary, setMatchChallengeSummary] = React.useState<MatchChallengeRewardSummary | null>(null);
+  const [matchRewardsErrorMessage, setMatchRewardsErrorMessage] = React.useState<string | null>(null);
+  const [isRefreshingMatchRewards, setIsRefreshingMatchRewards] = React.useState(false);
   const [rollingVisual, setRollingVisual] = React.useState(false);
   const [rollButtonLatchPhase, setRollButtonLatchPhase] = React.useState<RollButtonLatchPhase>('idle');
   const [showLocalDiceVisual, setShowLocalDiceVisual] = React.useState(false);
@@ -351,6 +363,72 @@ export function GameRoom() {
       setShowWinModal(true);
     }
   }, [gameState.winner]);
+
+  useEffect(() => {
+    if (!showWinModal) {
+      setMatchChallengeSummary(null);
+      setMatchRewardsErrorMessage(null);
+      setIsRefreshingMatchRewards(false);
+      return;
+    }
+
+    if (isOffline || !matchId) {
+      return;
+    }
+
+    let isMounted = true;
+
+    const refreshMatchRewards = async () => {
+      setIsRefreshingMatchRewards(true);
+      setMatchRewardsErrorMessage(null);
+
+      try {
+        const [progressionResult, challengesResult] = await Promise.all([
+          refreshProgression({ silent: true }),
+          refreshChallenges({ silent: true }),
+        ]);
+
+        if (!isMounted) {
+          return;
+        }
+
+        const nextDefinitions = challengesResult?.definitions ?? challengeDefinitions;
+        const nextProgress = challengesResult?.progress ?? challengeProgress;
+
+        setMatchChallengeSummary(buildMatchChallengeRewardSummary(matchId, nextDefinitions, nextProgress));
+
+        if (!progressionResult && progressionError) {
+          setMatchRewardsErrorMessage(progressionError);
+        }
+      } catch (error) {
+        if (!isMounted) {
+          return;
+        }
+
+        setMatchChallengeSummary(buildMatchChallengeRewardSummary(matchId, challengeDefinitions, challengeProgress));
+        setMatchRewardsErrorMessage(error instanceof Error ? error.message : 'Unable to refresh match rewards.');
+      } finally {
+        if (isMounted) {
+          setIsRefreshingMatchRewards(false);
+        }
+      }
+    };
+
+    void refreshMatchRewards();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [
+    challengeDefinitions,
+    challengeProgress,
+    isOffline,
+    matchId,
+    progressionError,
+    refreshChallenges,
+    refreshProgression,
+    showWinModal,
+  ]);
   useEffect(() => {
     if (!showHowToPlay && !showAudioSettings && !showWinModal) {
       return;
@@ -1696,13 +1774,30 @@ export function GameRoom() {
         message={winModalMessage}
         actionLabel="Return to Menu"
         onAction={handleExit}
+        maxWidth={520}
       >
-        {!isOffline && didPlayerWin ? (
-          <ProgressionAwardSummary
-            progression={progression}
-            award={lastProgressionAward}
-            pending={!lastProgressionAward}
-          />
+        {!isOffline ? (
+          <>
+            <XPDisplay
+              progression={progression}
+              isLoading={isRefreshingMatchRewards && !progression}
+              errorMessage={progressionError}
+              compact
+              style={styles.matchRewardsXpDisplay}
+            />
+            {didPlayerWin ? (
+              <ProgressionAwardSummary
+                progression={progression}
+                award={lastProgressionAward}
+                pending={!lastProgressionAward}
+              />
+            ) : null}
+            <MatchChallengeRewardsPanel
+              summary={matchChallengeSummary}
+              loading={isRefreshingMatchRewards && !matchChallengeSummary}
+              errorMessage={matchRewardsErrorMessage}
+            />
+          </>
         ) : null}
       </Modal>
 
@@ -1734,6 +1829,10 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: '#D9C39A',
+  },
+  matchRewardsXpDisplay: {
+    width: '100%',
+    marginBottom: urTheme.spacing.sm,
   },
   backdropLayer: {
     ...StyleSheet.absoluteFillObject,

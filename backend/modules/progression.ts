@@ -3,7 +3,6 @@ import {
   createDefaultProgressionProfile,
   getRankForXp,
   getXpAwardAmount,
-  isProgressionAwardResponse,
   ProgressionAwardNotificationPayload,
   ProgressionAwardResponse,
   ProgressionProfile,
@@ -16,28 +15,61 @@ type RuntimeContext = any;
 type RuntimeLogger = any;
 type RuntimeNakama = any;
 
-type RuntimeRecord = Record<string, unknown>;
-type RuntimeStorageObject = RuntimeRecord & {
+export type RuntimeRecord = Record<string, unknown>;
+export type RuntimeStorageObject = RuntimeRecord & {
   value?: unknown;
   version?: string;
 };
 
-type StoredAwardRecord = {
+export type XpRewardSource = "pvp_win" | "challenge_completion";
+
+export type StoredXpRewardRecord = {
   userId: string;
+  ledgerKey: string;
+  source: XpRewardSource;
+  sourceId: string;
+  matchId: string | null;
   awardedAt: string;
-  response: ProgressionAwardResponse;
+  awardedXp: number;
+  previousTotalXp: number;
+  newTotalXp: number;
+  progression: ProgressionSnapshot;
 };
 
-const PROGRESSION_COLLECTION = "progression";
-const PROGRESSION_PROFILE_KEY = "profile";
-const PROGRESSION_AWARD_COLLECTION = "progression_awards";
+export type XpRewardResult = {
+  ledgerKey: string;
+  source: XpRewardSource;
+  sourceId: string;
+  matchId: string | null;
+  duplicate: boolean;
+  awardedXp: number;
+  previousTotalXp: number;
+  newTotalXp: number;
+  previousRank: string;
+  newRank: string;
+  rankChanged: boolean;
+  progression: ProgressionSnapshot;
+};
 
-const STORAGE_PERMISSION_NONE = 0;
-const MAX_WRITE_ATTEMPTS = 4;
+export type XpRewardGrant = {
+  ledgerKey: string;
+  source: XpRewardSource;
+  sourceId: string;
+  matchId?: string | null;
+  awardedXp: number;
+};
+
+export const PROGRESSION_COLLECTION = "progression";
+export const PROGRESSION_PROFILE_KEY = "profile";
+export const XP_REWARD_LEDGER_COLLECTION = "xp_reward_ledger";
+
+export const STORAGE_PERMISSION_NONE = 0;
+export const MAX_WRITE_ATTEMPTS = 4;
 
 export const RPC_GET_PROGRESSION = "get_progression";
+export const RPC_GET_USER_XP_PROGRESS = "get_user_xp_progress";
 
-const asRecord = (value: unknown): RuntimeRecord | null =>
+export const asRecord = (value: unknown): RuntimeRecord | null =>
   typeof value === "object" && value !== null ? (value as RuntimeRecord) : null;
 
 const readStringField = (value: unknown, keys: string[]): string | null => {
@@ -78,17 +110,37 @@ const readNumberField = (value: unknown, keys: string[]): number | null => {
   return null;
 };
 
-const getStorageObjectValue = (object: RuntimeStorageObject | null): unknown => object?.value ?? null;
+export const getStorageObjectValue = (object: RuntimeStorageObject | null): unknown => object?.value ?? null;
 
-const getStorageObjectVersion = (object: RuntimeStorageObject | null): string | null =>
+export const getStorageObjectVersion = (object: RuntimeStorageObject | null): string | null =>
   readStringField(object, ["version"]);
 
-const getErrorMessage = (error: unknown): string =>
+export const getErrorMessage = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
 
-const buildAwardRecordKey = (matchId: string, source: XpSource): string => `${source}:${matchId}`;
+export const findStorageObject = (
+  objects: RuntimeStorageObject[],
+  collection: string,
+  key: string,
+  userId?: string
+): RuntimeStorageObject | null =>
+  objects.find((object) => {
+    const collectionName = readStringField(object, ["collection"]);
+    const objectKey = readStringField(object, ["key"]);
+    const objectUserId = readStringField(object, ["userId", "user_id"]);
 
-const normalizeProgressionProfile = (
+    if (collectionName !== collection || objectKey !== key) {
+      return false;
+    }
+
+    if (typeof userId === "string") {
+      return objectUserId === userId;
+    }
+
+    return !objectUserId;
+  }) ?? null;
+
+export const normalizeProgressionProfile = (
   rawValue: unknown,
   fallbackUpdatedAt = new Date().toISOString()
 ): ProgressionProfile => {
@@ -119,40 +171,48 @@ const profileNeedsRepair = (rawValue: unknown, normalized: ProgressionProfile): 
   );
 };
 
-const normalizeStoredAwardRecord = (rawValue: unknown): StoredAwardRecord | null => {
+export const normalizeStoredXpRewardRecord = (rawValue: unknown): StoredXpRewardRecord | null => {
   const record = asRecord(rawValue);
   if (!record) {
     return null;
   }
 
   const userId = readStringField(record, ["userId", "user_id"]);
+  const ledgerKey = readStringField(record, ["ledgerKey", "ledger_key"]);
+  const source = readStringField(record, ["source"]);
+  const sourceId = readStringField(record, ["sourceId", "source_id"]);
   const awardedAt = readStringField(record, ["awardedAt", "awarded_at"]);
-  const response = (record.response ?? null) as unknown;
+  const matchId = readStringField(record, ["matchId", "match_id"]);
+  const awardedXp = sanitizeTotalXp(readNumberField(record, ["awardedXp", "awarded_xp"]) ?? 0);
+  const previousTotalXp = sanitizeTotalXp(readNumberField(record, ["previousTotalXp", "previous_total_xp"]) ?? 0);
+  const newTotalXp = sanitizeTotalXp(readNumberField(record, ["newTotalXp", "new_total_xp"]) ?? 0);
+  const progression = record.progression as unknown;
 
-  if (!userId || !awardedAt || !isProgressionAwardResponse(response)) {
+  if (
+    !userId ||
+    !ledgerKey ||
+    !sourceId ||
+    !awardedAt ||
+    (source !== "pvp_win" && source !== "challenge_completion") ||
+    typeof progression !== "object" ||
+    progression === null
+  ) {
     return null;
   }
 
   return {
     userId,
+    ledgerKey,
+    source,
+    sourceId,
+    matchId: matchId ?? null,
     awardedAt,
-    response,
+    awardedXp,
+    previousTotalXp,
+    newTotalXp,
+    progression: progression as ProgressionSnapshot,
   };
 };
-
-const findStorageObject = (
-  objects: RuntimeStorageObject[],
-  collection: string,
-  key: string,
-  userId: string
-): RuntimeStorageObject | null =>
-  objects.find((object) => {
-    const collectionName = readStringField(object, ["collection"]);
-    const objectKey = readStringField(object, ["key"]);
-    const objectUserId = readStringField(object, ["userId", "user_id"]);
-
-    return collectionName === collection && objectKey === key && objectUserId === userId;
-  }) ?? null;
 
 const readProgressionProfileObject = (nk: RuntimeNakama, userId: string): RuntimeStorageObject | null => {
   const objects = nk.storageRead([
@@ -166,13 +226,11 @@ const readProgressionProfileObject = (nk: RuntimeNakama, userId: string): Runtim
   return findStorageObject(objects, PROGRESSION_COLLECTION, PROGRESSION_PROFILE_KEY, userId);
 };
 
-const readProgressionProfileAndAward = (
+const readProgressionProfileAndLedger = (
   nk: RuntimeNakama,
   userId: string,
-  matchId: string,
-  source: XpSource
-): { profileObject: RuntimeStorageObject | null; awardObject: RuntimeStorageObject | null } => {
-  const awardKey = buildAwardRecordKey(matchId, source);
+  ledgerKey: string
+): { profileObject: RuntimeStorageObject | null; ledgerObject: RuntimeStorageObject | null } => {
   const objects = nk.storageRead([
     {
       collection: PROGRESSION_COLLECTION,
@@ -180,19 +238,19 @@ const readProgressionProfileAndAward = (
       userId,
     },
     {
-      collection: PROGRESSION_AWARD_COLLECTION,
-      key: awardKey,
+      collection: XP_REWARD_LEDGER_COLLECTION,
+      key: ledgerKey,
       userId,
     },
   ]) as RuntimeStorageObject[];
 
   return {
     profileObject: findStorageObject(objects, PROGRESSION_COLLECTION, PROGRESSION_PROFILE_KEY, userId),
-    awardObject: findStorageObject(objects, PROGRESSION_AWARD_COLLECTION, awardKey, userId),
+    ledgerObject: findStorageObject(objects, XP_REWARD_LEDGER_COLLECTION, ledgerKey, userId),
   };
 };
 
-const writeProgressionProfile = (
+export const writeProgressionProfile = (
   nk: RuntimeNakama,
   userId: string,
   profile: ProgressionProfile,
@@ -211,23 +269,37 @@ const writeProgressionProfile = (
   ]);
 };
 
-const buildDuplicateAwardResponse = (
-  storedAwardObject: RuntimeStorageObject,
+const buildDuplicateRewardResult = (
+  ledgerObject: RuntimeStorageObject,
   fallbackProgression: ProgressionSnapshot,
-  matchId: string,
-  source: XpSource
-): ProgressionAwardResponse => {
-  const normalizedRecord = normalizeStoredAwardRecord(getStorageObjectValue(storedAwardObject));
+  fallback: { ledgerKey: string; source: XpRewardSource; sourceId: string; matchId: string | null }
+): XpRewardResult => {
+  const normalizedRecord = normalizeStoredXpRewardRecord(getStorageObjectValue(ledgerObject));
   if (normalizedRecord) {
+    const previousRank = getRankForXp(normalizedRecord.previousTotalXp).title;
+    const newRank = getRankForXp(normalizedRecord.newTotalXp).title;
+
     return {
-      ...normalizedRecord.response,
+      ledgerKey: normalizedRecord.ledgerKey,
+      source: normalizedRecord.source,
+      sourceId: normalizedRecord.sourceId,
+      matchId: normalizedRecord.matchId,
       duplicate: true,
+      awardedXp: normalizedRecord.awardedXp,
+      previousTotalXp: normalizedRecord.previousTotalXp,
+      newTotalXp: normalizedRecord.newTotalXp,
+      previousRank,
+      newRank,
+      rankChanged: previousRank !== newRank,
+      progression: normalizedRecord.progression,
     };
   }
 
   return {
-    matchId,
-    source,
+    ledgerKey: fallback.ledgerKey,
+    source: fallback.source,
+    sourceId: fallback.sourceId,
+    matchId: fallback.matchId,
     duplicate: true,
     awardedXp: 0,
     previousTotalXp: fallbackProgression.totalXp,
@@ -238,6 +310,25 @@ const buildDuplicateAwardResponse = (
     progression: fallbackProgression,
   };
 };
+
+export const buildXpRewardLedgerRecord = (
+  userId: string,
+  reward: XpRewardGrant,
+  previousTotalXp: number,
+  newTotalXp: number,
+  awardedAt: string
+): StoredXpRewardRecord => ({
+  userId,
+  ledgerKey: reward.ledgerKey,
+  source: reward.source,
+  sourceId: reward.sourceId,
+  matchId: reward.matchId ?? null,
+  awardedAt,
+  awardedXp: sanitizeTotalXp(reward.awardedXp),
+  previousTotalXp,
+  newTotalXp,
+  progression: buildProgressionSnapshot(newTotalXp),
+});
 
 export const ensureProgressionProfile = (
   nk: RuntimeNakama,
@@ -294,42 +385,47 @@ export const getProgressionForUser = (
   userId: string
 ): ProgressionSnapshot => buildProgressionSnapshot(ensureProgressionProfile(nk, logger, userId).totalXp);
 
-export const awardXpForMatchWin = (
+export const awardXp = (
   nk: RuntimeNakama,
   logger: RuntimeLogger,
-  params: {
-    userId: string;
-    matchId: string;
-    source?: XpSource;
-  }
-): ProgressionAwardResponse => {
+  params: XpRewardGrant & { userId: string }
+): XpRewardResult => {
   const userId = params.userId?.trim();
-  const matchId = params.matchId?.trim();
-  const source = params.source ?? "pvp_win";
+  const ledgerKey = params.ledgerKey?.trim();
+  const sourceId = params.sourceId?.trim();
 
   if (!userId) {
     throw new Error("Cannot award progression without a user ID.");
   }
 
-  if (!matchId) {
-    throw new Error("Cannot award progression without a match ID.");
+  if (!ledgerKey) {
+    throw new Error("Cannot award progression without an XP ledger key.");
   }
 
-  const awardedXp = sanitizeTotalXp(getXpAwardAmount(source));
+  if (!sourceId) {
+    throw new Error("Cannot award progression without a source ID.");
+  }
+
+  const awardedXp = sanitizeTotalXp(params.awardedXp);
   if (awardedXp <= 0) {
-    throw new Error(`Configured XP award for source "${source}" must be positive.`);
+    throw new Error(`Configured XP award for ledger key "${ledgerKey}" must be positive.`);
   }
 
   for (let attempt = 1; attempt <= MAX_WRITE_ATTEMPTS; attempt += 1) {
     const now = new Date().toISOString();
-    const { profileObject, awardObject } = readProgressionProfileAndAward(nk, userId, matchId, source);
+    const { profileObject, ledgerObject } = readProgressionProfileAndLedger(nk, userId, ledgerKey);
     const currentProfile = profileObject
       ? normalizeProgressionProfile(getStorageObjectValue(profileObject), now)
       : createDefaultProgressionProfile(0, now);
     const currentSnapshot = buildProgressionSnapshot(currentProfile.totalXp);
 
-    if (awardObject) {
-      return buildDuplicateAwardResponse(awardObject, currentSnapshot, matchId, source);
+    if (ledgerObject) {
+      return buildDuplicateRewardResult(ledgerObject, currentSnapshot, {
+        ledgerKey,
+        source: params.source,
+        sourceId,
+        matchId: params.matchId ?? null,
+      });
     }
 
     const previousTotalXp = currentProfile.totalXp;
@@ -337,9 +433,11 @@ export const awardXpForMatchWin = (
     const previousRank = getRankForXp(previousTotalXp).title;
     const newRank = getRankForXp(newTotalXp).title;
 
-    const response: ProgressionAwardResponse = {
-      matchId,
-      source,
+    const response: XpRewardResult = {
+      ledgerKey,
+      source: params.source,
+      sourceId,
+      matchId: params.matchId ?? null,
       duplicate: false,
       awardedXp,
       previousTotalXp,
@@ -356,15 +454,21 @@ export const awardXpForMatchWin = (
       lastUpdatedAt: now,
     };
 
-    const awardRecord: StoredAwardRecord = {
+    const rewardRecord = buildXpRewardLedgerRecord(
       userId,
-      awardedAt: now,
-      response,
-    };
+      {
+        ledgerKey,
+        source: params.source,
+        sourceId,
+        matchId: params.matchId ?? null,
+        awardedXp,
+      },
+      previousTotalXp,
+      newTotalXp,
+      now
+    );
 
     try {
-      // Keep the XP increment and the "match already processed" marker in the same
-      // Nakama storage transaction so retries cannot double-award the same win.
       nk.storageWrite([
         {
           collection: PROGRESSION_COLLECTION,
@@ -376,10 +480,10 @@ export const awardXpForMatchWin = (
           permissionWrite: STORAGE_PERMISSION_NONE,
         },
         {
-          collection: PROGRESSION_AWARD_COLLECTION,
-          key: buildAwardRecordKey(matchId, source),
+          collection: XP_REWARD_LEDGER_COLLECTION,
+          key: ledgerKey,
           userId,
-          value: awardRecord,
+          value: rewardRecord,
           version: "*",
           permissionRead: STORAGE_PERMISSION_NONE,
           permissionWrite: STORAGE_PERMISSION_NONE,
@@ -387,40 +491,81 @@ export const awardXpForMatchWin = (
       ]);
 
       logger.info(
-        "Awarded %d XP to user %s for %s on match %s (total=%d).",
+        "Awarded %d XP to user %s for %s (%s). total=%d",
         awardedXp,
         userId,
-        source,
-        matchId,
+        params.source,
+        sourceId,
         newTotalXp
       );
 
       return response;
     } catch (error) {
-      const refreshed = readProgressionProfileAndAward(nk, userId, matchId, source);
-      if (refreshed.awardObject) {
-        return buildDuplicateAwardResponse(
-          refreshed.awardObject,
+      const refreshed = readProgressionProfileAndLedger(nk, userId, ledgerKey);
+      if (refreshed.ledgerObject) {
+        return buildDuplicateRewardResult(
+          refreshed.ledgerObject,
           buildProgressionSnapshot(
             normalizeProgressionProfile(getStorageObjectValue(refreshed.profileObject), now).totalXp
           ),
-          matchId,
-          source
+          {
+            ledgerKey,
+            source: params.source,
+            sourceId,
+            matchId: params.matchId ?? null,
+          }
         );
       }
 
       logger.warn(
-        "Award write attempt %d/%d failed for user %s on match %s: %s",
+        "XP award write attempt %d/%d failed for user %s (%s/%s): %s",
         attempt,
         MAX_WRITE_ATTEMPTS,
         userId,
-        matchId,
+        params.source,
+        sourceId,
         getErrorMessage(error)
       );
     }
   }
 
-  throw new Error(`Unable to persist progression award for user ${userId} on match ${matchId}.`);
+  throw new Error(`Unable to persist progression award for user ${userId} on ledger ${ledgerKey}.`);
+};
+
+const buildPvpWinAwardResponse = (result: XpRewardResult): ProgressionAwardResponse => ({
+  matchId: result.matchId ?? result.sourceId,
+  source: "pvp_win",
+  duplicate: result.duplicate,
+  awardedXp: result.awardedXp,
+  previousTotalXp: result.previousTotalXp,
+  newTotalXp: result.newTotalXp,
+  previousRank: result.previousRank,
+  newRank: result.newRank,
+  rankChanged: result.rankChanged,
+  progression: result.progression,
+});
+
+export const awardXpForMatchWin = (
+  nk: RuntimeNakama,
+  logger: RuntimeLogger,
+  params: {
+    userId: string;
+    matchId: string;
+    source?: XpSource;
+  }
+): ProgressionAwardResponse => {
+  const source = params.source ?? "pvp_win";
+
+  return buildPvpWinAwardResponse(
+    awardXp(nk, logger, {
+      userId: params.userId,
+      ledgerKey: `${source}:${params.matchId}`,
+      source: "pvp_win",
+      sourceId: params.matchId,
+      matchId: params.matchId,
+      awardedXp: getXpAwardAmount(source),
+    })
+  );
 };
 
 export const createProgressionAwardNotification = (
@@ -430,7 +575,7 @@ export const createProgressionAwardNotification = (
   ...response,
 });
 
-export const rpcGetProgression = (
+const rpcGetXpProgress = (
   ctx: RuntimeContext,
   logger: RuntimeLogger,
   nk: RuntimeNakama,
@@ -442,3 +587,6 @@ export const rpcGetProgression = (
 
   return JSON.stringify(getProgressionForUser(nk, logger, ctx.userId));
 };
+
+export const rpcGetProgression = rpcGetXpProgress;
+export const rpcGetUserXpProgress = rpcGetXpProgress;

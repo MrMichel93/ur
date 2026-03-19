@@ -96,6 +96,21 @@ export EXPO_PUBLIC_GAME_TRANSPORT=offline
 - `npm run backend:prod:up`: start production TLS stack (`backend/deploy/docker-compose.prod.yml`)
 - `npm run backend:prod:logs`: tail production stack logs
 
+## Challenge + XP backend
+
+The Nakama backend now includes a server-authoritative permanent challenge system for authenticated users.
+
+- Challenge definitions are centralized in `shared/challenges.ts`.
+- Per-user challenge completion and XP remain tied to the authenticated Nakama user ID.
+- The authoritative match runtime records trusted telemetry, emits a normalized completed-match summary at game end, evaluates challenges on the backend, and grants XP through an idempotent ledger.
+- Read APIs are exposed through authenticated RPCs:
+  - `get_progression`
+  - `get_user_xp_progress`
+  - `get_challenge_definitions`
+  - `get_user_challenge_progress`
+
+For storage layout, data flow, and instructions on adding a new challenge, see `backend/README.md`.
+
 ## Backend stack reference
 
 Canonical Nakama stack: `/Users/Michel/Desktop/ur/backend/docker-compose.yml`

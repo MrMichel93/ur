@@ -11,6 +11,7 @@ interface ModalProps {
   actionLabel: string;
   onAction: () => void;
   children?: React.ReactNode;
+  maxWidth?: number;
 }
 
 export const Modal: React.FC<ModalProps> = ({
@@ -20,11 +21,12 @@ export const Modal: React.FC<ModalProps> = ({
   actionLabel,
   onAction,
   children,
+  maxWidth = 380,
 }) => {
   return (
     <RNModal transparent visible={visible} animationType="fade" onRequestClose={onAction}>
       <View style={styles.backdrop}>
-        <View style={styles.sheet}>
+        <View style={[styles.sheet, { maxWidth }]}>
           <Image source={urTextures.woodDark} resizeMode="repeat" style={styles.texture} />
           <Image source={urTextures.border} resizeMode="repeat" style={styles.borderTexture} />
           <View style={styles.sheetGlow} />

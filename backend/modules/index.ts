@@ -4,13 +4,24 @@
 */
 
 import { applyMove, createInitialState, getValidMoves, rollDice } from "../../logic/engine";
+import { PATH_DARK, PATH_LENGTH, PATH_LIGHT, isWarZone } from "../../logic/constants";
 import { GameState, PlayerColor } from "../../logic/types";
 import {
   awardXpForMatchWin,
   createProgressionAwardNotification,
   rpcGetProgression,
   RPC_GET_PROGRESSION,
+  rpcGetUserXpProgress,
+  RPC_GET_USER_XP_PROGRESS,
 } from "./progression";
+import {
+  ensureChallengeDefinitions,
+  processCompletedMatch,
+  rpcGetChallengeDefinitions,
+  rpcGetUserChallengeProgress,
+  RPC_GET_CHALLENGE_DEFINITIONS,
+  RPC_GET_USER_CHALLENGE_PROGRESS,
+} from "./challenges";
 import {
   MatchOpCode,
   MoveRequestPayload,
@@ -22,6 +33,7 @@ import {
   isMoveRequestPayload,
   isRollRequestPayload,
 } from "../../shared/urMatchProtocol";
+import { CompletedMatchSummary, OpponentType, calculateComebackCheckpoint } from "../../shared/challenges";
 
 declare namespace nkruntime {
   type Context = any;
@@ -39,6 +51,24 @@ type MatchState = {
   assignments: Record<string, PlayerColor>;
   gameState: GameState;
   revision: number;
+  opponentType: OpponentType;
+  telemetry: MatchTelemetry;
+};
+
+type MatchPlayerTelemetry = {
+  playerMoveCount: number;
+  maxRollCount: number;
+  capturesMade: number;
+  capturesSuffered: number;
+  contestedTilesLandedCount: number;
+  wasBehindDuringMatch: boolean;
+  behindCheckpointCount: number;
+  behindReasons: Set<"progress_deficit" | "borne_off_deficit">;
+};
+
+type MatchTelemetry = {
+  totalMoves: number;
+  players: Record<PlayerColor, MatchPlayerTelemetry>;
 };
 
 type RuntimeRecord = Record<string, unknown>;
@@ -49,6 +79,9 @@ const ONLINE_TTL_MS = 30_000;
 
 const RPC_AUTH_LINK_CUSTOM = "auth_link_custom";
 const RPC_GET_PROGRESSION_NAME = RPC_GET_PROGRESSION;
+const RPC_GET_USER_XP_PROGRESS_NAME = RPC_GET_USER_XP_PROGRESS;
+const RPC_GET_CHALLENGE_DEFINITIONS_NAME = RPC_GET_CHALLENGE_DEFINITIONS;
+const RPC_GET_USER_CHALLENGE_PROGRESS_NAME = RPC_GET_USER_CHALLENGE_PROGRESS;
 const RPC_MATCHMAKER_ADD = "matchmaker_add";
 const RPC_PRESENCE_HEARTBEAT = "presence_heartbeat";
 const RPC_PRESENCE_COUNT = "presence_count";
@@ -165,6 +198,95 @@ const encodeOnlinePresencePayload = (nowMs: number): string =>
     serverTimeMs: nowMs,
   });
 
+const createPlayerTelemetry = (): MatchPlayerTelemetry => ({
+  playerMoveCount: 0,
+  maxRollCount: 0,
+  capturesMade: 0,
+  capturesSuffered: 0,
+  contestedTilesLandedCount: 0,
+  wasBehindDuringMatch: false,
+  behindCheckpointCount: 0,
+  behindReasons: new Set(),
+});
+
+const createMatchTelemetry = (): MatchTelemetry => ({
+  totalMoves: 0,
+  players: {
+    light: createPlayerTelemetry(),
+    dark: createPlayerTelemetry(),
+  },
+});
+
+const getPathCoord = (color: PlayerColor, index: number) => {
+  if (index < 0 || index >= PATH_LENGTH) {
+    return null;
+  }
+
+  return color === "light" ? PATH_LIGHT[index] ?? null : PATH_DARK[index] ?? null;
+};
+
+const detectCaptureOnMove = (state: GameState, move: MoveRequestPayload["move"]): boolean => {
+  const moverColor = state.currentTurn;
+  const opponentColor: PlayerColor = moverColor === "light" ? "dark" : "light";
+  const targetCoord = getPathCoord(moverColor, move.toIndex);
+  if (!targetCoord) {
+    return false;
+  }
+
+  return state[opponentColor].pieces.some((piece) => {
+    if (piece.position < 0 || piece.isFinished) {
+      return false;
+    }
+
+    const pieceCoord = getPathCoord(opponentColor, piece.position);
+    return Boolean(pieceCoord && pieceCoord.row === targetCoord.row && pieceCoord.col === targetCoord.col);
+  });
+};
+
+const updateComebackTelemetry = (state: MatchState): void => {
+  (["light", "dark"] as PlayerColor[]).forEach((playerColor) => {
+    const checkpoint = calculateComebackCheckpoint(state.gameState, playerColor);
+    if (!checkpoint.wasBehind) {
+      return;
+    }
+
+    const playerTelemetry = state.telemetry.players[playerColor];
+    playerTelemetry.wasBehindDuringMatch = true;
+    playerTelemetry.behindCheckpointCount += 1;
+    checkpoint.reasons.forEach((reason) => playerTelemetry.behindReasons.add(reason));
+  });
+};
+
+const buildPlayerMatchSummary = (
+  state: MatchState,
+  matchId: string,
+  playerUserId: string,
+  playerColor: PlayerColor
+): CompletedMatchSummary => {
+  const opponentColor: PlayerColor = playerColor === "light" ? "dark" : "light";
+  const playerTelemetry = state.telemetry.players[playerColor];
+
+  return {
+    matchId,
+    playerUserId,
+    opponentType: state.opponentType,
+    didWin: state.gameState.winner === playerColor,
+    totalMoves: state.telemetry.totalMoves,
+    playerMoveCount: playerTelemetry.playerMoveCount,
+    piecesLost: playerTelemetry.capturesSuffered,
+    maxRollCount: playerTelemetry.maxRollCount,
+    capturesMade: playerTelemetry.capturesMade,
+    capturesSuffered: playerTelemetry.capturesSuffered,
+    contestedTilesLandedCount: playerTelemetry.contestedTilesLandedCount,
+    borneOffCount: state.gameState[playerColor].finishedCount,
+    opponentBorneOffCount: state.gameState[opponentColor].finishedCount,
+    wasBehindDuringMatch: playerTelemetry.wasBehindDuringMatch,
+    behindCheckpointCount: playerTelemetry.behindCheckpointCount,
+    behindReasons: Array.from(playerTelemetry.behindReasons),
+    timestamp: new Date().toISOString(),
+  };
+};
+
 // Nakama's JS runtime parser can panic on shorthand object properties in registerMatch.
 // Use distinct local aliases so emitted JS keeps explicit key:value pairs.
 const matchInitHandler = matchInit;
@@ -178,11 +300,14 @@ const matchSignalHandler = matchSignal;
 function InitModule(
   _ctx: nkruntime.Context,
   logger: nkruntime.Logger,
-  _nk: nkruntime.Nakama,
+  nk: nkruntime.Nakama,
   initializer: nkruntime.Initializer
 ) {
   initializer.registerRpc(RPC_AUTH_LINK_CUSTOM, rpcAuthLinkCustom);
   initializer.registerRpc(RPC_GET_PROGRESSION_NAME, rpcGetProgression);
+  initializer.registerRpc(RPC_GET_USER_XP_PROGRESS_NAME, rpcGetUserXpProgress);
+  initializer.registerRpc(RPC_GET_CHALLENGE_DEFINITIONS_NAME, rpcGetChallengeDefinitions);
+  initializer.registerRpc(RPC_GET_USER_CHALLENGE_PROGRESS_NAME, rpcGetUserChallengeProgress);
   initializer.registerRpc(RPC_MATCHMAKER_ADD, rpcMatchmakerAdd);
   initializer.registerRpc(RPC_PRESENCE_HEARTBEAT, rpcPresenceHeartbeat);
   initializer.registerRpc(RPC_PRESENCE_COUNT, rpcPresenceCount);
@@ -196,6 +321,7 @@ function InitModule(
     matchSignal: matchSignalHandler,
   });
   initializer.registerMatchmakerMatched(matchmakerMatched);
+  ensureChallengeDefinitions(nk, logger);
 
   logger.info("Nakama runtime module loaded.");
 }
@@ -327,6 +453,8 @@ function matchInit(
     assignments,
     gameState: createInitialState(),
     revision: 0,
+    opponentType: "human",
+    telemetry: createMatchTelemetry(),
   };
 
   return { state, tickRate: TICK_RATE, label: MATCH_HANDLER };
@@ -540,6 +668,10 @@ function applyRollRequest(
   }
 
   const rollValue = rollDice();
+  if (rollValue === 4) {
+    state.telemetry.players[playerColor].maxRollCount += 1;
+  }
+
   const rollingState: GameState = {
     ...state.gameState,
     rollValue,
@@ -556,6 +688,7 @@ function applyRollRequest(
       rollValue: null,
       history: [...rollingState.history, `${rollingState.currentTurn} rolled ${rollValue} but had no moves.`],
     };
+    updateComebackTelemetry(state);
   } else {
     state.gameState = rollingState;
   }
@@ -603,13 +736,30 @@ function applyMoveRequest(
     return;
   }
 
+  const didCapture = detectCaptureOnMove(state.gameState, payload.move);
+  const targetCoord = getPathCoord(playerColor, payload.move.toIndex);
   state.gameState = applyMove(state.gameState, payload.move);
+  state.telemetry.totalMoves += 1;
+  state.telemetry.players[playerColor].playerMoveCount += 1;
+
+  if (didCapture) {
+    const opponentColor: PlayerColor = playerColor === "light" ? "dark" : "light";
+    state.telemetry.players[playerColor].capturesMade += 1;
+    state.telemetry.players[opponentColor].capturesSuffered += 1;
+  }
+
+  if (targetCoord && isWarZone(targetCoord.row, targetCoord.col)) {
+    state.telemetry.players[playerColor].contestedTilesLandedCount += 1;
+  }
+
+  updateComebackTelemetry(state);
   state.revision += 1;
   logger.debug("Applied move for %s (revision %d)", userId, state.revision);
   broadcastSnapshot(dispatcher, state, matchId);
 
   if (state.gameState.winner) {
     awardWinnerProgression(logger, nk, dispatcher, state, matchId);
+    processCompletedMatchSummaries(logger, nk, state, matchId);
   }
 }
 
@@ -667,6 +817,27 @@ function awardWinnerProgression(
       error instanceof Error ? error.message : String(error)
     );
   }
+}
+
+function processCompletedMatchSummaries(
+  logger: nkruntime.Logger,
+  nk: nkruntime.Nakama,
+  state: MatchState,
+  matchId: string
+): void {
+  Object.entries(state.assignments).forEach(([playerUserId, playerColor]) => {
+    try {
+      const summary = buildPlayerMatchSummary(state, matchId, playerUserId, playerColor);
+      processCompletedMatch(nk, logger, summary);
+    } catch (error) {
+      logger.error(
+        "Failed to process challenge summary for user %s on match %s: %s",
+        playerUserId,
+        matchId,
+        error instanceof Error ? error.message : String(error)
+      );
+    }
+  });
 }
 
 function sendError(
