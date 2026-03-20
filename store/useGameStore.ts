@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { BotDifficulty, DEFAULT_BOT_DIFFICULTY } from '@/logic/bot/types';
+import { DEFAULT_MATCH_CONFIG, type MatchConfig } from '@/logic/matchConfigs';
 import { GameState, MoveAction, PlayerColor } from '@/logic/types';
 import { ProgressionAwardResponse } from '@/shared/progression';
 import { createInitialState, getValidMoves, applyMove, rollDice } from '@/logic/engine';
@@ -28,7 +29,7 @@ interface GameStore {
   rollCommandSender: RollCommandSender;
   moveCommandSender: MoveCommandSender;
 
-  initGame: (matchId: string, options?: { botDifficulty?: BotDifficulty }) => void;
+  initGame: (matchId: string, options?: { botDifficulty?: BotDifficulty; matchConfig?: MatchConfig }) => void;
   setMatchId: (matchId: string) => void;
   setBotDifficulty: (difficulty: BotDifficulty) => void;
   setNakamaSession: (session: Session | null) => void;
@@ -68,9 +69,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
   moveCommandSender: null,
 
   initGame: (matchId, options) => {
+    const matchConfig = options?.matchConfig ?? DEFAULT_MATCH_CONFIG;
+
     set({
       matchId,
-      gameState: createInitialState(),
+      gameState: createInitialState(matchConfig),
       validMoves: [],
       matchPresences: [],
       lastProgressionAward: null,

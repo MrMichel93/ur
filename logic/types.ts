@@ -1,9 +1,11 @@
+import type { MatchConfig } from './matchConfigs';
+
 export type PlayerColor = 'light' | 'dark';
 
 export interface Piece {
     id: string; // unique id (e.g. 'light-1')
     owner: PlayerColor;
-    position: number; // 0-14 (path index), or -1 (start), or 15 (finished)
+    position: number; // variant path index, or -1 (reserve), or pathLength (finished)
     isFinished: boolean;
 }
 
@@ -22,6 +24,7 @@ export interface GameState {
     currentTurn: PlayerColor;
     rollValue: number | null; // 0-4
     phase: GamePhase;
+    matchConfig: MatchConfig;
 
     // Players
     light: Player;

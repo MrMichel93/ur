@@ -1,6 +1,7 @@
 import { BotDifficulty } from '@/logic/bot/types';
-import { PATH_DARK, PATH_LENGTH, PATH_LIGHT, isWarZone } from '@/logic/constants';
+import { isWarZone } from '@/logic/constants';
 import { GameState, PlayerColor } from '@/logic/types';
+import { getPathCoord } from '@/logic/pathVariants';
 import {
   CompletedMatchSummary,
   MatchSummaryCheckpointReason,
@@ -53,14 +54,6 @@ export const createOfflineMatchTelemetry = (): OfflineMatchTelemetry => ({
     dark: createPlayerTelemetry(),
   },
 });
-
-const getPathCoord = (color: PlayerColor, index: number) => {
-  if (index < 0 || index >= PATH_LENGTH) {
-    return null;
-  }
-
-  return color === 'light' ? PATH_LIGHT[index] ?? null : PATH_DARK[index] ?? null;
-};
 
 const appendUniqueReasons = (
   currentReasons: MatchSummaryCheckpointReason[],
@@ -158,7 +151,7 @@ export const recordOfflineHistoryEntries = (
     if (moveMatch) {
       const mover = moveMatch[1] as PlayerColor;
       const toIndex = Number(moveMatch[2]);
-      const targetCoord = getPathCoord(mover, toIndex);
+      const targetCoord = getPathCoord(nextState.matchConfig.pathVariant, mover, toIndex);
 
       nextTelemetry = {
         ...patchPlayerTelemetry(nextTelemetry, mover, (current) => ({

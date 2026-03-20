@@ -1,5 +1,6 @@
 import { hasNakamaConfig, isNakamaEnabled } from '@/config/nakama';
 import { BotDifficulty, DEFAULT_BOT_DIFFICULTY } from '@/logic/bot/types';
+import { DEFAULT_MATCH_CONFIG, type MatchConfig } from '@/logic/matchConfigs';
 import { cancelMatchmaking, findMatch } from '@/services/matchmaking';
 import { getOnlineDeviceCount } from '@/services/presence';
 import { useGameStore } from '@/store/useGameStore';
@@ -56,14 +57,17 @@ export const useMatchmaking = (mode: LobbyMode = 'bot') => {
         };
     }, []);
 
-    const startBotGame = useCallback((difficulty: BotDifficulty = DEFAULT_BOT_DIFFICULTY) => {
+    const startBotGame = useCallback((
+        difficulty: BotDifficulty = DEFAULT_BOT_DIFFICULTY,
+        matchConfig: MatchConfig = DEFAULT_MATCH_CONFIG,
+    ) => {
         setOnlineMode('offline');
         const localMatchId = `local-${Date.now()}`;
         setMatchToken(null);
-        initGame(localMatchId, { botDifficulty: difficulty });
+        initGame(localMatchId, { botDifficulty: difficulty, matchConfig });
         setSocketState('connected');
         setStatus('matched');
-        router.push(`/match/${localMatchId}?offline=1&botDifficulty=${difficulty}`);
+        router.push(`/match/${localMatchId}?offline=1&botDifficulty=${difficulty}&modeId=${matchConfig.modeId}`);
     }, [initGame, router, setMatchToken, setOnlineMode, setSocketState]);
 
     const startOnlineMatch = useCallback(async () => {

@@ -1,5 +1,6 @@
 import { useGameStore } from './useGameStore';
 import * as engine from '@/logic/engine';
+import { getMatchConfig } from '@/logic/matchConfigs';
 import { GameState, MoveAction } from '@/logic/types';
 
 jest.mock('@/logic/engine', () => {
@@ -85,6 +86,18 @@ describe('useGameStore', () => {
     const state = useGameStore.getState();
     expect(state.matchId).toBe('bot-match');
     expect(state.botDifficulty).toBe('perfect');
+  });
+
+  it('initGame() accepts an explicit match config for practice variants', () => {
+    const matchConfig = getMatchConfig('gameMode_5_pieces');
+
+    useGameStore.getState().initGame('practice-match', { matchConfig });
+
+    const state = useGameStore.getState();
+    expect(state.matchId).toBe('practice-match');
+    expect(state.gameState.matchConfig).toEqual(matchConfig);
+    expect(state.gameState.light.pieces).toHaveLength(5);
+    expect(state.gameState.dark.pieces).toHaveLength(5);
   });
 
   it('setGameStateFromServer() recomputes validMoves only when moving with rollValue', () => {

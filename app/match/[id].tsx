@@ -29,6 +29,10 @@ import { useGameLoop } from '@/hooks/useGameLoop';
 import { DEFAULT_BOT_DIFFICULTY, isBotDifficulty } from '@/logic/bot/types';
 import { BOARD_COLS, BOARD_ROWS } from '@/logic/constants';
 import { applyMove as applyEngineMove } from '@/logic/engine';
+import {
+  getMatchConfig,
+  PRACTICE_MODE_REWARD_LABEL,
+} from '@/logic/matchConfigs';
 import type { GameState, MoveAction, PlayerColor } from '@/logic/types';
 import { gameAudio } from '@/services/audio';
 import { submitCompletedBotMatchResult } from '@/services/botMatchRewards';
@@ -95,6 +99,8 @@ const HOURGLASS_HEIGHT_RATIO = 156 / 100;
 const LOCAL_NO_MOVE_HISTORY_RE = /^(light|dark) rolled ([0-4]) but had no moves\.$/;
 const LOCAL_MOVE_HISTORY_RE = /^(light|dark) moved to \d+\. Rosette: (true|false)$/;
 const AUTO_ROLL_DELAY_MS = 550;
+const BOARD_INTRO_FALLBACK_DELAY_MS = 400;
+const SHOULD_BYPASS_CINEMATIC_INTROS = process.env.NODE_ENV === 'test';
 
 type MatchMomentCueKind = 'play' | 'yourTurn' | 'zero' | 'stuck' | 'timeout' | 'rosette';
 type RollButtonLatchPhase = 'idle' | 'awaitingOutcome' | 'awaitingTurnReset';
@@ -167,11 +173,12 @@ const isMoveMatch = (left: MoveAction, right: MoveAction) =>
   left.pieceId === right.pieceId && left.fromIndex === right.fromIndex && left.toIndex === right.toIndex;
 
 export function GameRoom() {
-  const { id, offline, botDifficulty, tutorial } = useLocalSearchParams<{
+  const { id, offline, botDifficulty, tutorial, modeId } = useLocalSearchParams<{
     id?: string | string[];
     offline?: string | string[];
     botDifficulty?: string | string[];
     tutorial?: string | string[];
+    modeId?: string | string[];
   }>();
   const router = useRouter();
   const { width, height } = useWindowDimensions();
@@ -189,10 +196,12 @@ export function GameRoom() {
     [botDifficulty],
   );
   const tutorialParam = useMemo(() => (Array.isArray(tutorial) ? tutorial[0] : tutorial), [tutorial]);
+  const modeIdParam = useMemo(() => (Array.isArray(modeId) ? modeId[0] : modeId), [modeId]);
   const resolvedBotDifficulty = useMemo(
     () => (isBotDifficulty(botDifficultyParam) ? botDifficultyParam : DEFAULT_BOT_DIFFICULTY),
     [botDifficultyParam],
   );
+  const resolvedMatchConfig = useMemo(() => getMatchConfig(modeIdParam), [modeIdParam]);
   const tutorialId = useMemo(
     () => (isPlaythroughTutorialId(tutorialParam) ? tutorialParam : null),
     [tutorialParam],
@@ -238,10 +247,15 @@ export function GameRoom() {
   const tutorialRewardMode: CompletedBotMatchRewardMode | undefined = isPlaythroughTutorialMatch
     ? 'base_win_only'
     : undefined;
+  const effectiveMatchConfig = storedMatchId === matchId ? gameState.matchConfig : resolvedMatchConfig;
+  const pieceCountPerSide = effectiveMatchConfig.pieceCountPerSide;
+  const isPracticeModeMatch = effectiveMatchConfig.isPracticeMode;
 
   const hasAssignedColor = playerColor === 'light' || playerColor === 'dark';
-  const canSyncOfflineBotRewards = isOffline && isNakamaEnabled() && hasNakamaConfig() && Boolean(user);
-  const shouldShowAccountRewards = !isOffline || canSyncOfflineBotRewards;
+  const canSyncOfflineBotRewards =
+    effectiveMatchConfig.allowsXp && isOffline && isNakamaEnabled() && hasNakamaConfig() && Boolean(user);
+  const shouldShowAccountRewards =
+    effectiveMatchConfig.allowsXp && (!isOffline || canSyncOfflineBotRewards);
   const effectiveMatchToken = storedMatchId === matchId ? matchToken : null;
   const isMyTurn = hasAssignedColor && gameState.currentTurn === playerColor;
   const canRoll = isMyTurn && gameState.phase === 'rolling';
@@ -282,13 +296,18 @@ export function GameRoom() {
   const [moveHintEnabled, setMoveHintEnabled] = React.useState(DEFAULT_MATCH_PREFERENCES.moveHintEnabled);
   const [boardSlotSize, setBoardSlotSize] = React.useState({ width: 0, height: 0 });
   const [boardTargetFrame, setBoardTargetFrame] = React.useState<BoardTargetFrame | null>(null);
+  const [hasBoardArtLayout, setHasBoardArtLayout] = React.useState(false);
   const [lightReserveSlots, setLightReserveSlots] = React.useState<ReserveSlotMeasurement[]>([]);
   const [darkReserveSlots, setDarkReserveSlots] = React.useState<ReserveSlotMeasurement[]>([]);
   const [showBoardDropIntro, setShowBoardDropIntro] = React.useState(false);
   const [hasPlayedBoardDropIntro, setHasPlayedBoardDropIntro] = React.useState(false);
   const [showReserveCascadeIntro, setShowReserveCascadeIntro] = React.useState(false);
   const [hasPlayedReserveCascadeIntro, setHasPlayedReserveCascadeIntro] = React.useState(false);
-  const introsComplete = hasPlayedBoardDropIntro && hasPlayedReserveCascadeIntro;
+  const hasMeasuredReserveTargets = lightReserveSlots.length > 0 || darkReserveSlots.length > 0;
+  const shouldSkipReserveCascadeIntro = hasPlayedBoardDropIntro && !hasMeasuredReserveTargets;
+  const introsComplete =
+    SHOULD_BYPASS_CINEMATIC_INTROS ||
+    (hasPlayedBoardDropIntro && (hasPlayedReserveCascadeIntro || shouldSkipReserveCascadeIntro));
   const [turnTimerCycleId, setTurnTimerCycleId] = React.useState(0);
   const [activeMatchCue, setActiveMatchCue] = React.useState<MatchMomentIndicatorCue | null>(null);
   const [mobileScoreRowHeight, setMobileScoreRowHeight] = React.useState(0);
@@ -622,6 +641,7 @@ export function GameRoom() {
   const handleLiveBoardImageLayout = React.useCallback(
     (layout: BoardImageLayoutFrame) => {
       boardImageLayoutRef.current = layout;
+      setHasBoardArtLayout(true);
       syncBoardTargetFrame();
     },
     [syncBoardTargetFrame],
@@ -838,6 +858,7 @@ export function GameRoom() {
       autoRollTimerRef.current = null;
     }
     setBoardTargetFrame(null);
+    setHasBoardArtLayout(false);
     setRollingVisual(false);
     setRollButtonLatchPhase('idle');
     setShowLocalDiceVisual(false);
@@ -1079,10 +1100,10 @@ export function GameRoom() {
   useEffect(() => {
     if (!matchId) return;
     if (storedMatchId !== matchId) {
-      initGame(matchId, { botDifficulty: resolvedBotDifficulty });
+      initGame(matchId, { botDifficulty: resolvedBotDifficulty, matchConfig: resolvedMatchConfig });
     }
     setMatchId(matchId);
-  }, [initGame, matchId, resolvedBotDifficulty, setMatchId, storedMatchId]);
+  }, [initGame, matchId, resolvedBotDifficulty, resolvedMatchConfig, setMatchId, storedMatchId]);
 
   useEffect(() => {
     if (!isPlaythroughTutorialMatch || !matchId) {
@@ -1580,7 +1601,11 @@ export function GameRoom() {
 
   const lightReserve = gameState.light.pieces.filter((piece) => !piece.isFinished && piece.position === -1).length;
   const darkReserve = gameState.dark.pieces.filter((piece) => !piece.isFinished && piece.position === -1).length;
-  const matchTitle = isPlaythroughTutorialMatch ? 'Play Tutorial' : `Game #${matchId ?? 'local'}`;
+  const matchTitle = isPlaythroughTutorialMatch
+    ? 'Play Tutorial'
+    : isPracticeModeMatch
+      ? effectiveMatchConfig.displayName
+      : `Game #${matchId ?? 'local'}`;
 
   const viewportHorizontalPadding = 0;
   const stageContentWidth = Math.min(Math.max(width - viewportHorizontalPadding * 2, 0), urTheme.layout.stage.maxWidth);
@@ -1747,7 +1772,10 @@ export function GameRoom() {
     syncBoardTargetFrame();
   }, [boardScale, mobileBoardVisualOffset, mobileScoreRowHeight, syncBoardTargetFrame]);
 
-  const shouldHideReservePieces = !hasPlayedReserveCascadeIntro;
+  const shouldHideReservePieces =
+    !SHOULD_BYPASS_CINEMATIC_INTROS &&
+    !hasPlayedReserveCascadeIntro &&
+    hasMeasuredReserveTargets;
   const isTurnTimerEnabled = introsComplete && !isScriptedTutorialPhase && (!isOffline || botTimerEnabled);
   const isVisualTurnTimerRunning = isTurnTimerEnabled && gameState.phase !== 'ended' && gameState.winner === null;
   const showDestinationHighlights = introsComplete && !rollingVisual && gameState.rollValue !== null;
@@ -1765,6 +1793,28 @@ export function GameRoom() {
 
     setShowBoardDropIntro(true);
   }, [hasPlayedBoardDropIntro, isBoardTargetFrameReady, showBoardDropIntro]);
+  useEffect(() => {
+    if (hasPlayedBoardDropIntro || showBoardDropIntro || isBoardTargetFrameReady) {
+      return;
+    }
+
+    if (!hasBoardArtLayout) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      setHasPlayedBoardDropIntro(true);
+    }, BOARD_INTRO_FALLBACK_DELAY_MS);
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [
+    hasPlayedBoardDropIntro,
+    hasBoardArtLayout,
+    isBoardTargetFrameReady,
+    showBoardDropIntro,
+  ]);
   useEffect(() => {
     if (!hasPlayedBoardDropIntro) return;
     if (hasPlayedReserveCascadeIntro || showReserveCascadeIntro) return;
@@ -1896,12 +1946,14 @@ export function GameRoom() {
               color={isMobileLayout || isWebLayout ? urTheme.colors.ivory : TOP_CHROME_ACCENT}
             />
           </Pressable>
-          <Text
-            numberOfLines={1}
-            style={[styles.topChromeTitle, (isMobileLayout || isWebLayout) && styles.topChromeTitleMobile]}
-          >
-            {matchTitle}
-          </Text>
+          <View style={styles.topChromeTitleStack}>
+            <Text
+              numberOfLines={1}
+              style={[styles.topChromeTitle, (isMobileLayout || isWebLayout) && styles.topChromeTitleMobile]}
+            >
+              {matchTitle}
+            </Text>
+          </View>
         </View>
 
         <View style={styles.topChromeRight}>
@@ -1990,7 +2042,7 @@ export function GameRoom() {
           >
             <EdgeScore
               label="Light Score"
-              value={`${gameState.light.finishedCount}/7`}
+              value={`${gameState.light.finishedCount}/${pieceCountPerSide}`}
               active={introsComplete && isMyTurn}
             />
             {isMobileLayout && isTurnTimerEnabled ? (
@@ -2011,7 +2063,7 @@ export function GameRoom() {
             ) : null}
             <EdgeScore
               label="Dark Score"
-              value={`${gameState.dark.finishedCount}/7`}
+              value={`${gameState.dark.finishedCount}/${pieceCountPerSide}`}
               active={introsComplete && !isMyTurn}
               align="right"
               style={isMobileLayout && isTurnTimerEnabled ? { marginRight: mobileDarkScoreNudge } : undefined}
@@ -2054,6 +2106,7 @@ export function GameRoom() {
                   tokenVariant="light"
                   piecePixelSize={scaledReservePiecePixelSize}
                   reserveCount={lightReserve}
+                  totalCount={pieceCountPerSide}
                   active={introsComplete && isMyTurn}
                   hideReservePieces={shouldHideReservePieces}
                   onReserveSlotsLayout={setLightReserveSlots}
@@ -2137,6 +2190,7 @@ export function GameRoom() {
                   tokenVariant="dark"
                   piecePixelSize={scaledReservePiecePixelSize}
                   reserveCount={darkReserve}
+                  totalCount={pieceCountPerSide}
                   active={introsComplete && !isMyTurn}
                   hideReservePieces={shouldHideReservePieces}
                   onReserveSlotsLayout={setDarkReserveSlots}
@@ -2234,6 +2288,7 @@ export function GameRoom() {
                       tokenVariant="light"
                       piecePixelSize={scaledReservePiecePixelSize}
                       reserveCount={lightReserve}
+                      totalCount={pieceCountPerSide}
                       active={introsComplete && isMyTurn}
                       hideReservePieces={shouldHideReservePieces}
                       onReserveSlotsLayout={setLightReserveSlots}
@@ -2247,6 +2302,7 @@ export function GameRoom() {
                       tokenVariant="dark"
                       piecePixelSize={scaledReservePiecePixelSize}
                       reserveCount={darkReserve}
+                      totalCount={pieceCountPerSide}
                       active={introsComplete && !isMyTurn}
                       hideReservePieces={shouldHideReservePieces}
                       onReserveSlotsLayout={setDarkReserveSlots}
@@ -2339,6 +2395,11 @@ export function GameRoom() {
         onAction={handleExit}
         maxWidth={520}
       >
+        {isPracticeModeMatch ? (
+          <View style={styles.practiceRewardLabel}>
+            <Text style={styles.practiceRewardLabelText}>{PRACTICE_MODE_REWARD_LABEL}</Text>
+          </View>
+        ) : null}
         {shouldShowAccountRewards ? (
           <>
             <XPDisplay
@@ -2504,8 +2565,13 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: urTheme.spacing.xs,
+  },
+  topChromeTitleStack: {
+    flex: 1,
+    minWidth: 0,
+    gap: 4,
   },
   topChromeRight: {
     position: 'relative',
@@ -2574,6 +2640,21 @@ const styles = StyleSheet.create({
   scoreRowOverlayMobile: {
     left: urTheme.spacing.xs,
     right: urTheme.spacing.xs,
+  },
+  practiceRewardLabel: {
+    marginBottom: urTheme.spacing.sm,
+    paddingHorizontal: urTheme.spacing.md,
+    paddingVertical: urTheme.spacing.sm,
+    borderRadius: urTheme.radii.md,
+    borderWidth: 1,
+    borderColor: 'rgba(217, 164, 65, 0.44)',
+    backgroundColor: 'rgba(13, 15, 18, 0.54)',
+  },
+  practiceRewardLabelText: {
+    ...urTypography.label,
+    color: urTheme.colors.parchment,
+    fontSize: 11,
+    textAlign: 'center',
   },
   scoreTimerSlot: {
     flex: 1,

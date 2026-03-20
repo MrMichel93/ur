@@ -1,6 +1,7 @@
-import { applyMove, getValidMoves, INITIAL_PIECE_COUNT } from '../engine';
-import { isRosette, isWarZone, PATH_DARK, PATH_LENGTH, PATH_LIGHT } from '../constants';
+import { applyMove, getValidMoves } from '../engine';
+import { isRosette, isWarZone } from '../constants';
 import { GameState, MoveAction, Player, PlayerColor } from '../types';
+import { getPathCoord, getPathLength } from '../pathVariants';
 import { BotDifficulty, DEFAULT_BOT_DIFFICULTY } from './types';
 
 type SearchContext = {
@@ -17,21 +18,9 @@ const ROLL_OUTCOMES = [
 ] as const;
 
 const EPSILON = 1e-6;
-const FINISHED_PROGRESS = PATH_LENGTH + 2;
-
 const otherColor = (color: PlayerColor): PlayerColor => (color === 'light' ? 'dark' : 'light');
 
 const clamp = (value: number, min: number, max: number): number => Math.min(max, Math.max(min, value));
-
-const getPathForColor = (color: PlayerColor) => (color === 'light' ? PATH_LIGHT : PATH_DARK);
-
-const getPathCoord = (color: PlayerColor, position: number) => {
-  if (position < 0 || position >= PATH_LENGTH) {
-    return null;
-  }
-
-  return getPathForColor(color)[position] ?? null;
-};
 
 const stripHistory = (state: GameState): GameState => (state.history.length === 0 ? state : { ...state, history: [] });
 
@@ -48,31 +37,37 @@ const buildStateKey = (state: GameState, depth: number, rootColor: PlayerColor):
     state.currentTurn,
     state.phase,
     state.rollValue ?? 'n',
+    state.matchConfig.modeId,
     sortPositions(state.light),
     sortPositions(state.dark),
   ].join('|');
 
-const getPieceProgress = (position: number): number => {
+const getPieceProgress = (position: number, pathLength: number): number => {
   if (position === -1) {
     return 0;
   }
 
-  if (position >= PATH_LENGTH) {
-    return FINISHED_PROGRESS;
+  if (position >= pathLength) {
+    return pathLength + 2;
   }
 
   return position + 1;
 };
 
-const getProgressScore = (player: Player): number =>
-  player.pieces.reduce((total, piece) => total + getPieceProgress(piece.position), 0);
+const getProgressScore = (player: Player, pathLength: number): number =>
+  player.pieces.reduce((total, piece) => total + getPieceProgress(piece.position, pathLength), 0);
 
 const countReservePieces = (player: Player): number =>
   player.pieces.filter(piece => piece.position === -1 && !piece.isFinished).length;
 
-const countRosetteOccupancy = (player: Player): number =>
+const getStatePathVariant = (state: GameState) => state.matchConfig.pathVariant;
+
+const getPieceCoord = (state: GameState, color: PlayerColor, position: number) =>
+  getPathCoord(getStatePathVariant(state), color, position);
+
+const countRosetteOccupancyForState = (state: GameState, player: Player): number =>
   player.pieces.reduce((count, piece) => {
-    const coord = getPathCoord(player.color, piece.position);
+    const coord = getPieceCoord(state, player.color, piece.position);
     if (!coord) {
       return count;
     }
@@ -82,6 +77,7 @@ const countRosetteOccupancy = (player: Player): number =>
 
 const canReachCoordOnNextRoll = (state: GameState, attackerColor: PlayerColor, row: number, col: number): boolean => {
   const attacker = state[attackerColor];
+  const pathLength = getPathLength(state.matchConfig.pathVariant);
 
   return attacker.pieces.some((piece) => {
     if (piece.isFinished) {
@@ -90,11 +86,11 @@ const canReachCoordOnNextRoll = (state: GameState, attackerColor: PlayerColor, r
 
     for (let roll = 1; roll <= 4; roll += 1) {
       const targetIndex = piece.position + roll;
-      if (targetIndex < 0 || targetIndex >= PATH_LENGTH) {
+      if (targetIndex < 0 || targetIndex >= pathLength) {
         continue;
       }
 
-      const coord = getPathCoord(attackerColor, targetIndex);
+      const coord = getPieceCoord(state, attackerColor, targetIndex);
       if (coord && coord.row === row && coord.col === col) {
         return true;
       }
@@ -109,7 +105,7 @@ const countThreatenedPieces = (state: GameState, defenderColor: PlayerColor): nu
   const defender = state[defenderColor];
 
   return defender.pieces.reduce((count, piece) => {
-    const coord = getPathCoord(defenderColor, piece.position);
+    const coord = getPieceCoord(state, defenderColor, piece.position);
     if (!coord || !isWarZone(coord.row, coord.col) || isRosette(coord.row, coord.col)) {
       return count;
     }
@@ -123,7 +119,7 @@ const countCaptureThreats = (state: GameState, attackerColor: PlayerColor): numb
   const defender = state[defenderColor];
 
   return defender.pieces.reduce((count, piece) => {
-    const coord = getPathCoord(defenderColor, piece.position);
+    const coord = getPieceCoord(state, defenderColor, piece.position);
     if (!coord || !isWarZone(coord.row, coord.col) || isRosette(coord.row, coord.col)) {
       return count;
     }
@@ -144,11 +140,12 @@ const evaluateHeuristic = (state: GameState, rootColor: PlayerColor): number => 
 
   const root = state[rootColor];
   const opponent = state[opponentColor];
+  const pathLength = getPathLength(state.matchConfig.pathVariant);
 
   const finishedDiff = root.finishedCount - opponent.finishedCount;
-  const progressDiff = getProgressScore(root) - getProgressScore(opponent);
+  const progressDiff = getProgressScore(root, pathLength) - getProgressScore(opponent, pathLength);
   const reserveDiff = countReservePieces(opponent) - countReservePieces(root);
-  const rosetteDiff = countRosetteOccupancy(root) - countRosetteOccupancy(opponent);
+  const rosetteDiff = countRosetteOccupancyForState(state, root) - countRosetteOccupancyForState(state, opponent);
   const threatDiff = countCaptureThreats(state, rootColor) - countCaptureThreats(state, opponentColor);
   const safetyDiff = countThreatenedPieces(state, opponentColor) - countThreatenedPieces(state, rootColor);
   const tempoBonus = state.currentTurn === rootColor ? 5 : -5;
@@ -168,19 +165,19 @@ const evaluateHeuristic = (state: GameState, rootColor: PlayerColor): number => 
 const doesMoveCapture = (state: GameState, move: MoveAction): boolean => {
   const mover = state.currentTurn;
   const opponent = state[otherColor(mover)];
-  const coord = getPathCoord(mover, move.toIndex);
+  const coord = getPieceCoord(state, mover, move.toIndex);
   if (!coord) {
     return false;
   }
 
   return opponent.pieces.some((piece) => {
-    const pieceCoord = getPathCoord(opponent.color, piece.position);
+    const pieceCoord = getPieceCoord(state, opponent.color, piece.position);
     return Boolean(pieceCoord && pieceCoord.row === coord.row && pieceCoord.col === coord.col);
   });
 };
 
 const isMoveUnsafe = (state: GameState, moverColor: PlayerColor, move: MoveAction): boolean => {
-  const coord = getPathCoord(moverColor, move.toIndex);
+  const coord = getPieceCoord(state, moverColor, move.toIndex);
   if (!coord || !isWarZone(coord.row, coord.col) || isRosette(coord.row, coord.col)) {
     return false;
   }
@@ -190,14 +187,15 @@ const isMoveUnsafe = (state: GameState, moverColor: PlayerColor, move: MoveActio
 
 const scoreImmediateMove = (state: GameState, move: MoveAction, rootColor: PlayerColor): number => {
   const moverColor = state.currentTurn;
-  const coord = getPathCoord(moverColor, move.toIndex);
+  const coord = getPieceCoord(state, moverColor, move.toIndex);
   const landsOnRosette = Boolean(coord && isRosette(coord.row, coord.col));
   const captures = doesMoveCapture(state, move);
   const nextState = stripHistory(applyMove(state, move));
+  const pathLength = getPathLength(state.matchConfig.pathVariant);
 
   let score = evaluateHeuristic(nextState, rootColor) * 100;
 
-  if (move.toIndex >= PATH_LENGTH) {
+  if (move.toIndex >= pathLength) {
     score += 120;
   }
 
@@ -312,7 +310,7 @@ const pickMediumMove = (state: GameState, moves: MoveAction[]): MoveAction => {
 
 const getSearchDepth = (difficulty: BotDifficulty, state: GameState): number => {
   const remainingPieces =
-    INITIAL_PIECE_COUNT * 2 - (state.light.finishedCount + state.dark.finishedCount);
+    state.matchConfig.pieceCountPerSide * 2 - (state.light.finishedCount + state.dark.finishedCount);
 
   if (difficulty === 'hard') {
     if (remainingPieces <= 4) return 4;

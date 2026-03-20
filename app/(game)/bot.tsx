@@ -5,7 +5,9 @@ import { boxShadow } from '@/constants/styleEffects';
 import { urTheme, urTextures, urTypography } from '@/constants/urTheme';
 import { useMatchmaking } from '@/hooks/useMatchmaking';
 import { BotDifficulty } from '@/logic/bot/types';
+import { GAME_MODE_SCREEN_NOTE, getMatchConfig } from '@/logic/matchConfigs';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { useLocalSearchParams } from 'expo-router';
 import React from 'react';
 import { Image, Platform, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 
@@ -58,15 +60,19 @@ const BOT_LEVELS: BotLevelCard[] = [
 
 export default function BotSelection() {
   const { width } = useWindowDimensions();
+  const { modeId: rawModeId } = useLocalSearchParams<{ modeId?: string | string[] }>();
   const { startBotGame } = useMatchmaking('bot');
   const [pendingDifficulty, setPendingDifficulty] = React.useState<BotDifficulty | null>(null);
   const isCompactLayout = width < 820;
   const showWideBackground = Platform.OS === 'web' && width >= MIN_WIDE_WEB_BACKGROUND_WIDTH;
   const showMobileBackground = useMobileBackground();
+  const resolvedModeId = Array.isArray(rawModeId) ? rawModeId[0] : rawModeId;
+  const matchConfig = React.useMemo(() => getMatchConfig(resolvedModeId), [resolvedModeId]);
+  const isPracticeMode = matchConfig.isPracticeMode;
 
   const handleSelect = (difficulty: BotDifficulty) => {
     setPendingDifficulty(difficulty);
-    startBotGame(difficulty);
+    startBotGame(difficulty, matchConfig);
   };
 
   return (
@@ -95,11 +101,20 @@ export default function BotSelection() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.hero}>
-          <Text style={styles.eyebrow}>Local Match</Text>
-          <Text style={styles.title}>Choose The Court You Want To Face</Text>
-          <Text style={styles.subtitle}>
-            Stronger Ur bots come from better state evaluation and deeper lookahead. Pick your opponent and enter the board.
+          <Text style={styles.eyebrow}>{isPracticeMode ? 'Game Modes' : 'Local Match'}</Text>
+          <Text style={styles.title}>
+            {isPracticeMode ? `${matchConfig.displayName} Difficulty` : 'Choose The Court You Want To Face'}
           </Text>
+          <Text style={styles.subtitle}>
+            {isPracticeMode
+              ? `${matchConfig.selectionSubtitle}. Choose a bot difficulty for this offline practice match.`
+              : 'Stronger Ur bots come from better state evaluation and deeper lookahead. Pick your opponent and enter the board.'}
+          </Text>
+          {isPracticeMode ? (
+            <View style={styles.practicePill}>
+              <Text style={styles.practicePillText}>{GAME_MODE_SCREEN_NOTE}</Text>
+            </View>
+          ) : null}
         </View>
 
         {isCompactLayout ? (
@@ -231,6 +246,22 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 22,
     maxWidth: 560,
+  },
+  practicePill: {
+    marginTop: urTheme.spacing.md,
+    paddingHorizontal: urTheme.spacing.md,
+    paddingVertical: urTheme.spacing.sm,
+    borderRadius: urTheme.radii.pill,
+    borderWidth: 1,
+    borderColor: 'rgba(217, 164, 65, 0.54)',
+    backgroundColor: 'rgba(13, 15, 18, 0.58)',
+    maxWidth: 620,
+  },
+  practicePillText: {
+    ...urTypography.label,
+    color: urTheme.colors.parchment,
+    fontSize: 11,
+    textAlign: 'center',
   },
   compactCardRow: {
     gap: urTheme.spacing.md,

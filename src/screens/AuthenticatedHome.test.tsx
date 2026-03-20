@@ -101,6 +101,7 @@ describe('AuthenticatedHome', () => {
     const view = render(<AuthenticatedHome />);
 
     expect(view.getByText('Play Tutorial')).toBeTruthy();
+    expect(view.getByText('Game Modes')).toBeTruthy();
     expect(view.queryByText('Watch Extended Tutorial')).toBeNull();
     expect(view.queryByText('5 Step Tutorial')).toBeNull();
   });

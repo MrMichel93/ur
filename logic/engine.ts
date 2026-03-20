@@ -1,13 +1,15 @@
 // import { produce } from 'immer';
 import { GameState, PlayerColor, Piece, Player, MoveAction } from './types';
-import { PATH_LIGHT, PATH_DARK, isRosette, isWarZone, PATH_LENGTH } from './constants';
+import { isRosette, isWarZone } from './constants';
+import { DEFAULT_MATCH_CONFIG, type MatchConfig } from './matchConfigs';
+import { getPathCoord, getPathLength } from './pathVariants';
 
-export const INITIAL_PIECE_COUNT = 7;
+export const INITIAL_PIECE_COUNT = DEFAULT_MATCH_CONFIG.pieceCountPerSide;
 
-const createPlayer = (color: PlayerColor): Player => ({
+const createPlayer = (color: PlayerColor, pieceCountPerSide: number): Player => ({
     id: color,
     color,
-    pieces: Array.from({ length: INITIAL_PIECE_COUNT }).map((_, i) => ({
+    pieces: Array.from({ length: pieceCountPerSide }).map((_, i) => ({
         id: `${color}-${i}`,
         owner: color,
         position: -1,
@@ -17,12 +19,13 @@ const createPlayer = (color: PlayerColor): Player => ({
     finishedCount: 0,
 });
 
-export const createInitialState = (): GameState => ({
+export const createInitialState = (matchConfig: MatchConfig = DEFAULT_MATCH_CONFIG): GameState => ({
     currentTurn: 'light',
     rollValue: null,
     phase: 'rolling',
-    light: createPlayer('light'),
-    dark: createPlayer('dark'),
+    matchConfig,
+    light: createPlayer('light', matchConfig.pieceCountPerSide),
+    dark: createPlayer('dark', matchConfig.pieceCountPerSide),
     winner: null,
     history: [],
 });
@@ -35,11 +38,6 @@ export const rollDice = (): number => {
     return sum;
 };
 
-const getPathCoord = (color: PlayerColor, index: number) => {
-    const path = color === 'light' ? PATH_LIGHT : PATH_DARK;
-    return path[index];
-};
-
 export const getValidMoves = (state: GameState, roll: number): MoveAction[] => {
     if (roll === 0) return [];
 
@@ -47,6 +45,7 @@ export const getValidMoves = (state: GameState, roll: number): MoveAction[] => {
     const opponent = state[state.currentTurn === 'light' ? 'dark' : 'light'];
     const moves: MoveAction[] = [];
     const processedPositions = new Set<number>();
+    const pathLength = getPathLength(state.matchConfig.pathVariant);
 
     for (const piece of player.pieces) {
         if (piece.isFinished) continue;
@@ -56,9 +55,9 @@ export const getValidMoves = (state: GameState, roll: number): MoveAction[] => {
 
         const targetIndex = piece.position + roll;
 
-        if (targetIndex > PATH_LENGTH) continue;
+        if (targetIndex > pathLength) continue;
 
-        if (targetIndex === PATH_LENGTH) {
+        if (targetIndex === pathLength) {
             moves.push({ pieceId: piece.id, fromIndex: piece.position, toIndex: targetIndex });
             continue;
         }
@@ -66,12 +65,14 @@ export const getValidMoves = (state: GameState, roll: number): MoveAction[] => {
         const myPieceAtTarget = player.pieces.find(p => p.position === targetIndex && !p.isFinished);
         if (myPieceAtTarget) continue;
 
-        const targetCoord = getPathCoord(player.color, targetIndex);
+        const targetCoord = getPathCoord(state.matchConfig.pathVariant, player.color, targetIndex);
+        if (!targetCoord) continue;
         const isShared = isWarZone(targetCoord.row, targetCoord.col);
 
         const opponentPiece = opponent.pieces.find(p => {
             if (p.isFinished || p.position === -1) return false;
-            const opCoord = getPathCoord(opponent.color, p.position);
+            const opCoord = getPathCoord(state.matchConfig.pathVariant, opponent.color, p.position);
+            if (!opCoord) return false;
             return opCoord.row === targetCoord.row && opCoord.col === targetCoord.col;
         });
 
@@ -93,20 +94,25 @@ export const applyMove = (state: GameState, move: MoveAction): GameState => {
 
     const player = newState[newState.currentTurn];
     const opponent = newState[newState.currentTurn === 'light' ? 'dark' : 'light'];
+    const pathLength = getPathLength(newState.matchConfig.pathVariant);
 
     const piece = player.pieces.find(p => p.id === move.pieceId)!;
     piece.position = move.toIndex;
 
-    if (move.toIndex === PATH_LENGTH) {
+    if (move.toIndex === pathLength) {
         piece.isFinished = true;
         player.finishedCount++;
     }
 
-    if (move.toIndex < PATH_LENGTH) {
-        const targetCoord = getPathCoord(player.color, move.toIndex);
+    if (move.toIndex < pathLength) {
+        const targetCoord = getPathCoord(newState.matchConfig.pathVariant, player.color, move.toIndex);
+        if (!targetCoord) {
+            throw new Error(`Missing path coordinate for ${player.color} at index ${move.toIndex}.`);
+        }
         const opponentPiece = opponent.pieces.find(p => {
             if (p.isFinished || p.position === -1) return false;
-            const opCoord = getPathCoord(opponent.color, p.position);
+            const opCoord = getPathCoord(newState.matchConfig.pathVariant, opponent.color, p.position);
+            if (!opCoord) return false;
             return opCoord.row === targetCoord.row && opCoord.col === targetCoord.col;
         });
 
@@ -118,9 +124,9 @@ export const applyMove = (state: GameState, move: MoveAction): GameState => {
     }
 
     let isRosetteLanding = false;
-    if (move.toIndex < PATH_LENGTH) {
-        const coord = getPathCoord(player.color, move.toIndex);
-        if (isRosette(coord.row, coord.col)) {
+    if (move.toIndex < pathLength) {
+        const coord = getPathCoord(newState.matchConfig.pathVariant, player.color, move.toIndex);
+        if (coord && isRosette(coord.row, coord.col)) {
             isRosetteLanding = true;
         }
     }
@@ -136,7 +142,7 @@ export const applyMove = (state: GameState, move: MoveAction): GameState => {
         newState.rollValue = null;
     }
 
-    if (player.finishedCount >= INITIAL_PIECE_COUNT) {
+    if (player.finishedCount >= newState.matchConfig.pieceCountPerSide) {
         newState.winner = player.color;
         newState.phase = 'ended';
     }

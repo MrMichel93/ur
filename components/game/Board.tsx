@@ -1,6 +1,7 @@
 import { boxShadow } from '@/constants/styleEffects';
 import { urTheme } from '@/constants/urTheme';
-import { BOARD_COLS, BOARD_ROWS, PATH_DARK, PATH_LENGTH, PATH_LIGHT } from '@/logic/constants';
+import { BOARD_COLS, BOARD_ROWS } from '@/logic/constants';
+import { getPathVariantDefinition } from '@/logic/pathVariants';
 import { GameState, MoveAction, PlayerColor } from '@/logic/types';
 import { useGameStore } from '@/store/useGameStore';
 import React, { useEffect, useMemo, useState } from 'react';
@@ -175,6 +176,15 @@ export const Board: React.FC<BoardProps> = ({
   const isVertical = orientation === 'vertical';
   const displayRows = isVertical ? BOARD_COLS : BOARD_ROWS;
   const displayCols = isVertical ? BOARD_ROWS : BOARD_COLS;
+  const pathDefinition = useMemo(
+    () => getPathVariantDefinition(gameState.matchConfig.pathVariant),
+    [gameState.matchConfig.pathVariant],
+  );
+  const pathLength = pathDefinition.pathLength;
+  const getPathForColor = React.useCallback(
+    (color: 'light' | 'dark') => (color === 'light' ? pathDefinition.light : pathDefinition.dark),
+    [pathDefinition.dark, pathDefinition.light],
+  );
 
   const boardWidth = useMemo(
     () => Math.min(width - urTheme.spacing.lg, urTheme.layout.boardMax) * boardScale,
@@ -252,7 +262,7 @@ export const Board: React.FC<BoardProps> = ({
   const isGapCell = (r: number, c: number) => (r === 0 || r === 2) && (c === 4 || c === 5);
 
   const mapIndexToCoord = (color: 'light' | 'dark', index: number, r: number, c: number) => {
-    const path = color === 'light' ? PATH_LIGHT : PATH_DARK;
+    const path = getPathForColor(color);
     const coord = path[index];
     if (!coord) return false;
     return coord.row === r && coord.col === c;
@@ -289,7 +299,7 @@ export const Board: React.FC<BoardProps> = ({
   };
 
   const coordForPathIndex = (color: 'light' | 'dark', index: number): Point | null => {
-    const path = color === 'light' ? PATH_LIGHT : PATH_DARK;
+    const path = getPathForColor(color);
 
     if (index === -1) {
       const startCenter = getCellCenter(path[0].row, path[0].col);
@@ -300,7 +310,7 @@ export const Board: React.FC<BoardProps> = ({
       };
     }
 
-    if (index === PATH_LENGTH) {
+    if (index === pathLength) {
       const finalCenter = getCellCenter(path[path.length - 1].row, path[path.length - 1].col);
       const finishOffset = projectLogicalOffset(boardLayout.cellSize * 0.95, 0);
       return {
@@ -343,7 +353,7 @@ export const Board: React.FC<BoardProps> = ({
     () => validMoves.find((move) => move.fromIndex === -1) ?? null,
     [validMoves],
   );
-  const scoringMoves = useMemo(() => validMoves.filter((move) => move.toIndex === PATH_LENGTH), [validMoves]);
+  const scoringMoves = useMemo(() => validMoves.filter((move) => move.toIndex === pathLength), [pathLength, validMoves]);
   const suggestedMove = useMemo(() => {
     if (!autoMoveHintEnabled || !isInteractiveTurn || gameState.phase !== 'moving' || validMoves.length === 0) {
       return null;
@@ -377,7 +387,7 @@ export const Board: React.FC<BoardProps> = ({
 
   const spawnCueAnchor = spawnMove
     ? (() => {
-      const start = spawnCueColor === 'light' ? PATH_LIGHT[0] : PATH_DARK[0];
+      const start = getPathForColor(spawnCueColor)[0];
       const startCenter = getCellCenter(start.row, start.col);
       const spawnOffset = projectLogicalOffset(spawnCueOffsetDistance, 0);
       return {
@@ -390,7 +400,7 @@ export const Board: React.FC<BoardProps> = ({
   const scoreCueAnchor =
     hasScoringMove && assignedPlayerColor
       ? (() => {
-        const path = assignedPlayerColor === 'light' ? PATH_LIGHT : PATH_DARK;
+        const path = getPathForColor(assignedPlayerColor);
         const final = path[path.length - 1];
         return getCellCenter(final.row, final.col - 1);
       })()
@@ -410,7 +420,7 @@ export const Board: React.FC<BoardProps> = ({
       if (reservePoint) {
         points.push(reservePoint);
       }
-      for (let index = 0; index <= Math.min(previewMove.toIndex, PATH_LENGTH - 1); index += 1) {
+      for (let index = 0; index <= Math.min(previewMove.toIndex, pathLength - 1); index += 1) {
         const point = coordForPathIndex(color, index);
         if (point) {
           points.push(point);
@@ -423,7 +433,7 @@ export const Board: React.FC<BoardProps> = ({
       }
       for (
         let index = previewMove.fromIndex + 1;
-        index <= Math.min(previewMove.toIndex, PATH_LENGTH - 1);
+        index <= Math.min(previewMove.toIndex, pathLength - 1);
         index += 1
       ) {
         const point = coordForPathIndex(color, index);
@@ -433,15 +443,15 @@ export const Board: React.FC<BoardProps> = ({
       }
     }
 
-    if (previewMove.toIndex === PATH_LENGTH) {
-      const finishPoint = coordForPathIndex(color, PATH_LENGTH);
+    if (previewMove.toIndex === pathLength) {
+      const finishPoint = coordForPathIndex(color, pathLength);
       if (finishPoint) {
         points.push(finishPoint);
       }
     }
 
     return points;
-  }, [previewMove]);
+  }, [coordForPathIndex, pathLength, previewMove]);
 
   const previewSegments = useMemo(() => {
     const segments: { x: number; y: number; width: number; angle: number }[] = [];
@@ -643,21 +653,21 @@ export const Board: React.FC<BoardProps> = ({
     setHoveredMove(null);
   };
 
+  const isMoveValid = (move: MoveAction | null | undefined): move is MoveAction =>
+    Boolean(
+      move &&
+      validMoves.some(
+        (candidate) =>
+          candidate.pieceId === move.pieceId &&
+          candidate.fromIndex === move.fromIndex &&
+          candidate.toIndex === move.toIndex,
+      ),
+    );
+
   const handleSpawnCuePress = () => {
     if (!spawnMove || !isInteractiveTurn || gameState.phase !== 'moving') return;
     setHoveredMove(null);
-
-    if (
-      selectedMove &&
-      selectedMove.pieceId === spawnMove.pieceId &&
-      selectedMove.fromIndex === spawnMove.fromIndex &&
-      selectedMove.toIndex === spawnMove.toIndex
-    ) {
-      executeMove(spawnMove);
-      return;
-    }
-
-    setSelectedMove(spawnMove);
+    executeMove(spawnMove);
   };
 
   const handleSpawnCueHoverIn = () => {
@@ -683,7 +693,7 @@ export const Board: React.FC<BoardProps> = ({
   const handleScoreCuePress = () => {
     if (!isInteractiveTurn || gameState.phase !== 'moving') return;
 
-    if (selectedMove && selectedMove.toIndex === PATH_LENGTH) {
+    if (selectedMove && selectedMove.toIndex === pathLength) {
       const selectedScoringMove = validMoves.find(
         (move) =>
           move.pieceId === selectedMove.pieceId &&
@@ -703,6 +713,14 @@ export const Board: React.FC<BoardProps> = ({
     executeMove(fallbackScoringMove);
   };
 
+  const handlePreviewDestinationPress = () => {
+    if (!isInteractiveTurn || gameState.phase !== 'moving' || !isMoveValid(previewMove)) {
+      return;
+    }
+
+    executeMove(previewMove);
+  };
+
   const handleTilePress = (r: number, c: number) => {
     if (!assignedPlayerColor || !isInteractiveTurn || gameState.phase !== 'moving') return;
 
@@ -712,22 +730,13 @@ export const Board: React.FC<BoardProps> = ({
 
     if (moveFromTile) {
       setHoveredMove(null);
-      if (
-        selectedMove &&
-        selectedMove.pieceId === moveFromTile.pieceId &&
-        selectedMove.fromIndex === moveFromTile.fromIndex &&
-        selectedMove.toIndex === moveFromTile.toIndex
-      ) {
-        setSelectedMove(null);
-      } else {
-        setSelectedMove(moveFromTile);
-      }
+      executeMove(moveFromTile);
       return;
     }
 
     if (selectedMove) {
       const selectedToTileMatch =
-        selectedMove.toIndex !== PATH_LENGTH && mapAssignedIndexToCoord(selectedMove.toIndex, r, c);
+        selectedMove.toIndex !== pathLength && mapAssignedIndexToCoord(selectedMove.toIndex, r, c);
 
       if (selectedToTileMatch) {
         executeMove(selectedMove);
@@ -736,7 +745,7 @@ export const Board: React.FC<BoardProps> = ({
     }
 
     const moveToTile = validMoves.find(
-      (move) => move.toIndex !== PATH_LENGTH && mapAssignedIndexToCoord(move.toIndex, r, c),
+      (move) => move.toIndex !== pathLength && mapAssignedIndexToCoord(move.toIndex, r, c),
     );
 
     if (moveToTile) {
@@ -816,12 +825,12 @@ export const Board: React.FC<BoardProps> = ({
         const isDestination =
           isMyTurn &&
           validMoves.some(
-            (move) => move.toIndex !== PATH_LENGTH && mapAssignedIndexToCoord(move.toIndex, r, c),
+            (move) => move.toIndex !== pathLength && mapAssignedIndexToCoord(move.toIndex, r, c),
           );
 
         const isPreviewDestination =
           !!previewMove &&
-          previewMove.toIndex !== PATH_LENGTH &&
+          previewMove.toIndex !== pathLength &&
           mapAssignedIndexToCoord(previewMove.toIndex, r, c);
 
         const isSelectedPiece =
@@ -880,7 +889,7 @@ export const Board: React.FC<BoardProps> = ({
     areMovesEqual(spawnMove, selectedMove);
   const spawnCueHinted = !!spawnMove && areMovesEqual(spawnMove, hintedMove);
   const spawnCueActive = spawnCueSelected || spawnCueHinted;
-  const scoreCueSelected = !!selectedMove && selectedMove.toIndex === PATH_LENGTH;
+  const scoreCueSelected = !!selectedMove && selectedMove.toIndex === pathLength;
 
   const handleBoardImageLayout = (event: LayoutChangeEvent) => {
     if (!onBoardImageLayout) return;
@@ -997,6 +1006,23 @@ export const Board: React.FC<BoardProps> = ({
           ) : null}
         </View>
       )}
+
+      {previewDestinationPoint && isMoveValid(previewMove) ? (
+        <Pressable
+          onPress={handlePreviewDestinationPress}
+          testID="board-preview-destination"
+          style={[
+            styles.previewDestinationTouchable,
+            {
+              left: previewDestinationPoint.x - Math.max(15, Math.round(boardPiecePixelSize * 0.42)),
+              top: previewDestinationPoint.y - Math.max(15, Math.round(boardPiecePixelSize * 0.42)),
+              width: Math.max(30, Math.round(boardPiecePixelSize * 0.84)),
+              height: Math.max(30, Math.round(boardPiecePixelSize * 0.84)),
+              borderRadius: Math.max(15, Math.round(boardPiecePixelSize * 0.42)),
+            },
+          ]}
+        />
+      ) : null}
 
       {isInteractiveTurn && hasScoringMove && scoreCueAnchor && (
         <Pressable
@@ -1233,6 +1259,10 @@ const styles = StyleSheet.create({
       blurRadius: 8,
       elevation: 6,
     }),
+  },
+  previewDestinationTouchable: {
+    position: 'absolute',
+    zIndex: 6,
   },
   spawnCueTouchable: {
     position: 'absolute',

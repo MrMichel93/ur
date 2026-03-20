@@ -1,4 +1,5 @@
 import { Coordinates, TileNode } from './types';
+import { DEFAULT_PATH_VARIANT, getPathVariantDefinition } from './pathVariants';
 
 export const BOARD_ROWS = 3;
 export const BOARD_COLS = 8;
@@ -25,22 +26,13 @@ export const SAFE_ZONE_COORDS: Coordinates[] = [
 // Light (Bottom/Row 2): (2,3)->(2,0) then (1,0)->(1,7) then (2,7)->(2,6)
 // Dark (Top/Row 0): (0,3)->(0,0) then (1,0)->(1,7) then (0,7)->(0,6)
 
-export const PATH_LIGHT: Coordinates[] = [
-    { row: 2, col: 3 }, { row: 2, col: 2 }, { row: 2, col: 1 }, { row: 2, col: 0 }, // 0-3
-    { row: 1, col: 0 }, { row: 1, col: 1 }, { row: 1, col: 2 }, { row: 1, col: 3 }, // 4-7
-    { row: 1, col: 4 }, { row: 1, col: 5 }, { row: 1, col: 6 }, { row: 1, col: 7 }, // 8-11
-    { row: 2, col: 7 }, { row: 2, col: 6 }, // 12-13
-    // 14 is "off board" finish
-];
+const DEFAULT_PATH_DEFINITION = getPathVariantDefinition(DEFAULT_PATH_VARIANT);
 
-export const PATH_DARK: Coordinates[] = [
-    { row: 0, col: 3 }, { row: 0, col: 2 }, { row: 0, col: 1 }, { row: 0, col: 0 }, // 0-3
-    { row: 1, col: 0 }, { row: 1, col: 1 }, { row: 1, col: 2 }, { row: 1, col: 3 }, // 4-7
-    { row: 1, col: 4 }, { row: 1, col: 5 }, { row: 1, col: 6 }, { row: 1, col: 7 }, // 8-11
-    { row: 0, col: 7 }, { row: 0, col: 6 }, // 12-13
-];
+export const PATH_LIGHT: Coordinates[] = DEFAULT_PATH_DEFINITION.light;
 
-export const PATH_LENGTH = 14;
+export const PATH_DARK: Coordinates[] = DEFAULT_PATH_DEFINITION.dark;
+
+export const PATH_LENGTH = DEFAULT_PATH_DEFINITION.pathLength;
 // Valid indices are 0 to 13. 
 // A move equal to 14 bears off.
 

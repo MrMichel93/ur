@@ -78,10 +78,22 @@ const mockStoreState = {
 
 jest.mock('@/components/game/Board', () => {
   const React = require('react');
+  const { useEffect } = React;
   const { View } = require('react-native');
   return {
     BOARD_IMAGE_SOURCE: 1,
-    Board: () => <View testID="mock-board" />,
+    Board: ({ onBoardImageLayout }: { onBoardImageLayout?: (layout: { x: number; y: number; width: number; height: number }) => void }) => {
+      useEffect(() => {
+        onBoardImageLayout?.({
+          x: 0,
+          y: 0,
+          width: 320,
+          height: 240,
+        });
+      }, [onBoardImageLayout]);
+
+      return <View testID="mock-board" />;
+    },
     getBoardPiecePixelSize: () => 28,
   };
 });
@@ -120,17 +132,39 @@ jest.mock('@/components/game/AmbientBackgroundEffects', () => {
 
 jest.mock('@/components/game/BoardDropIntro', () => {
   const React = require('react');
+  const { useEffect } = React;
   const { View } = require('react-native');
   return {
-    BoardDropIntro: () => <View testID="mock-board-drop" />,
+    BoardDropIntro: ({ onComplete }: { onComplete?: () => void }) => {
+      useEffect(() => {
+        onComplete?.();
+      }, [onComplete]);
+
+      return <View testID="mock-board-drop" />;
+    },
   };
 });
 
 jest.mock('@/components/game/ReserveCascadeIntro', () => {
   const React = require('react');
+  const { useEffect } = React;
   const { View } = require('react-native');
   return {
-    ReserveCascadeIntro: () => <View testID="mock-reserve-cascade" />,
+    ReserveCascadeIntro: ({
+      visible,
+      onComplete,
+    }: {
+      visible?: boolean;
+      onComplete?: () => void;
+    }) => {
+      useEffect(() => {
+        if (visible) {
+          onComplete?.();
+        }
+      }, [onComplete, visible]);
+
+      return <View testID="mock-reserve-cascade" />;
+    },
   };
 });
 
@@ -333,6 +367,13 @@ describe('GameRoom match dice stage', () => {
     await act(async () => {
       await Promise.resolve();
     });
+    act(() => {
+      jest.advanceTimersByTime(400);
+    });
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
 
     await act(async () => {
       fireEvent.press(screen.getByTestId('dice-roll-button'));
@@ -356,6 +397,13 @@ describe('GameRoom match dice stage', () => {
     const view = render(<GameRoom />);
 
     await act(async () => {
+      await Promise.resolve();
+    });
+    act(() => {
+      jest.advanceTimersByTime(400);
+    });
+    await act(async () => {
+      await Promise.resolve();
       await Promise.resolve();
     });
 
@@ -406,6 +454,7 @@ describe('GameRoom match dice stage', () => {
     render(<GameRoom />);
 
     await act(async () => {
+      await Promise.resolve();
       await Promise.resolve();
       await Promise.resolve();
     });

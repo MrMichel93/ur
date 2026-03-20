@@ -1,22 +1,26 @@
 import { getBotMove } from '@/logic/bot/bot';
+import { getMatchConfig } from '@/logic/matchConfigs';
 import { PATH_LENGTH } from '@/logic/constants';
 import { createInitialState } from '@/logic/engine';
+import { getPathLength } from '@/logic/pathVariants';
 import { GameState, PlayerColor } from '@/logic/types';
 
 const setActivePieces = (state: GameState, color: PlayerColor, positions: Record<number, number>) => {
   const player = state[color];
+  const pathLength = getPathLength(state.matchConfig.pathVariant);
 
   player.finishedCount = 0;
   player.pieces.forEach((piece, index) => {
     const position = positions[index];
     if (position === undefined) {
-      piece.position = PATH_LENGTH;
+      piece.position = pathLength;
       piece.isFinished = true;
+      player.finishedCount += 1;
       return;
     }
 
     piece.position = position;
-    piece.isFinished = position >= PATH_LENGTH;
+    piece.isFinished = position >= pathLength;
     if (piece.isFinished) {
       player.finishedCount += 1;
     }
@@ -63,5 +67,23 @@ describe('bot difficulty selection', () => {
     expect(getBotMove(state, 1, 'medium')).toEqual(expectedMove);
     expect(getBotMove(state, 1, 'hard')).toEqual(expectedMove);
     expect(getBotMove(state, 1, 'perfect')).toEqual(expectedMove);
+  });
+
+  it('uses the configured full-path finish square for practice modes', () => {
+    const fullPathConfig = getMatchConfig('gameMode_full_path');
+    const fullPathLength = getPathLength(fullPathConfig.pathVariant);
+    const state = createInitialState(fullPathConfig);
+    state.currentTurn = 'dark';
+    state.phase = 'moving';
+    state.rollValue = 1;
+
+    setActivePieces(state, 'dark', { 0: fullPathLength - 1 });
+    setActivePieces(state, 'light', {});
+
+    expect(getBotMove(state, 1, 'hard')).toEqual({
+      pieceId: state.dark.pieces[0].id,
+      fromIndex: fullPathLength - 1,
+      toIndex: fullPathLength,
+    });
   });
 });

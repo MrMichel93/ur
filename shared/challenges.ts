@@ -1,5 +1,5 @@
-import { PATH_LENGTH } from "../logic/constants";
 import { GameState, Player, PlayerColor } from "../logic/types";
+import { getPathLength } from "../logic/pathVariants";
 import { ProgressionAwardResponse, isProgressionAwardResponse } from "./progression";
 
 export const CHALLENGE_IDS = {
@@ -311,20 +311,20 @@ export const sanitizeNonNegativeInteger = (value: unknown): number => {
   return Math.max(0, Math.floor(value));
 };
 
-const getPieceProgressScore = (position: number): number => {
+const getPieceProgressScore = (position: number, pathLength: number): number => {
   if (position < 0) {
     return 0;
   }
 
-  if (position >= PATH_LENGTH) {
-    return PATH_LENGTH + 1;
+  if (position >= pathLength) {
+    return pathLength + 1;
   }
 
   return position + 1;
 };
 
-export const calculateBoardProgressScore = (player: Player): number =>
-  player.pieces.reduce((total, piece) => total + getPieceProgressScore(piece.position), 0);
+export const calculateBoardProgressScore = (player: Player, pathLength: number): number =>
+  player.pieces.reduce((total, piece) => total + getPieceProgressScore(piece.position, pathLength), 0);
 
 export const calculateComebackCheckpoint = (
   state: GameState,
@@ -334,9 +334,10 @@ export const calculateComebackCheckpoint = (
   const player = state[playerColor];
   const opponent = state[opponentColor];
   const reasons: MatchSummaryCheckpointReason[] = [];
+  const pathLength = getPathLength(state.matchConfig.pathVariant);
 
-  const playerProgress = calculateBoardProgressScore(player);
-  const opponentProgress = calculateBoardProgressScore(opponent);
+  const playerProgress = calculateBoardProgressScore(player, pathLength);
+  const opponentProgress = calculateBoardProgressScore(opponent, pathLength);
 
   if (opponent.finishedCount > player.finishedCount) {
     reasons.push("borne_off_deficit");

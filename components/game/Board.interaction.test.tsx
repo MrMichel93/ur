@@ -1,0 +1,125 @@
+import React from 'react';
+import { fireEvent, render, screen } from '@testing-library/react-native';
+import { Board } from './Board';
+import { createInitialState, getValidMoves } from '@/logic/engine';
+import type { GameState, PlayerColor } from '@/logic/types';
+
+jest.mock('./Tile', () => {
+  const React = require('react');
+  const { Pressable, Text } = require('react-native');
+
+  return {
+    Tile: ({
+      row,
+      col,
+      onPress,
+      isInteractive,
+    }: {
+      row: number;
+      col: number;
+      onPress?: () => void;
+      isInteractive?: boolean;
+    }) => (
+      <Pressable testID={`tile-${row}-${col}`} onPress={onPress} disabled={!isInteractive}>
+        <Text>{`${row}-${col}`}</Text>
+      </Pressable>
+    ),
+  };
+});
+
+jest.mock('./Piece', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+
+  return {
+    Piece: () => <View testID="mock-piece" />,
+  };
+});
+
+const setOnlyActivePiece = (state: GameState, color: PlayerColor, pieceIndex: number, position: number) => {
+  const player = state[color];
+
+  player.finishedCount = 0;
+  player.pieces.forEach((piece, index) => {
+    piece.position = -1;
+    piece.isFinished = index !== pieceIndex;
+
+    if (piece.isFinished) {
+      piece.position = state.matchConfig.pieceCountPerSide + 20;
+      player.finishedCount += 1;
+    }
+  });
+
+  player.pieces[pieceIndex].position = position;
+  player.pieces[pieceIndex].isFinished = false;
+};
+
+const setAllPiecesFinished = (state: GameState, color: PlayerColor) => {
+  const player = state[color];
+  player.finishedCount = player.pieces.length;
+  player.pieces.forEach((piece, index) => {
+    piece.position = state.matchConfig.pieceCountPerSide + 20 + index;
+    piece.isFinished = true;
+  });
+};
+
+describe('Board interactions', () => {
+  beforeEach(() => {
+    jest.spyOn(console, 'info').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('moves a piece directly when its piece tile is pressed', () => {
+    const state = createInitialState();
+    state.currentTurn = 'light';
+    state.phase = 'moving';
+    state.rollValue = 1;
+    setOnlyActivePiece(state, 'light', 0, 0);
+    setAllPiecesFinished(state, 'dark');
+
+    const validMoves = getValidMoves(state, 1);
+    const onMakeMove = jest.fn();
+
+    render(
+      <Board
+        gameStateOverride={state}
+        validMovesOverride={validMoves}
+        onMakeMoveOverride={onMakeMove}
+        playerColorOverride="light"
+      />,
+    );
+
+    fireEvent.press(screen.getByTestId('tile-2-3'));
+
+    expect(onMakeMove).toHaveBeenCalledWith(validMoves[0]);
+  });
+
+  it('moves a piece directly when the pulsing destination overlay is pressed', () => {
+    const state = createInitialState();
+    state.currentTurn = 'light';
+    state.phase = 'moving';
+    state.rollValue = 1;
+    setOnlyActivePiece(state, 'light', 0, 0);
+    setAllPiecesFinished(state, 'dark');
+
+    const validMoves = getValidMoves(state, 1);
+    const onMakeMove = jest.fn();
+
+    render(
+      <Board
+        autoMoveHintEnabled
+        gameStateOverride={state}
+        validMovesOverride={validMoves}
+        onMakeMoveOverride={onMakeMove}
+        playerColorOverride="light"
+      />,
+    );
+
+    fireEvent.press(screen.getByTestId('board-preview-destination'));
+
+    expect(onMakeMove).toHaveBeenCalledWith(validMoves[0]);
+  });
+});

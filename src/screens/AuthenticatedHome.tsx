@@ -105,6 +105,13 @@ export default function AuthenticatedHome() {
             labelStyle={blackButtonLabel}
           />
           <Button
+            title="Game Modes"
+            variant="outline"
+            onPress={() => router.push('/(game)/game-modes')}
+            style={styles.gameModesButton}
+            labelStyle={blackButtonLabel}
+          />
+          <Button
             title="Play Online"
             variant="outline"
             onPress={() => router.push('/(game)/lobby?mode=online')}
@@ -281,6 +288,11 @@ const styles = StyleSheet.create({
   playOnlineButton: {
     backgroundColor: '#B28A3C',
     borderColor: 'rgba(61, 41, 14, 0.38)',
+    borderWidth: 1.2,
+  },
+  gameModesButton: {
+    backgroundColor: '#E2D3AF',
+    borderColor: 'rgba(92, 73, 42, 0.24)',
     borderWidth: 1.2,
   },
   extendedTutorialButton: {
