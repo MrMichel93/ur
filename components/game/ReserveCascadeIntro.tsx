@@ -125,9 +125,11 @@ export const ReserveCascadeIntro: React.FC<ReserveCascadeIntroProps> = ({
   onComplete,
 }) => {
   const landedCountRef = useRef(0);
+  const completedRef = useRef(false);
 
   useEffect(() => {
     landedCountRef.current = 0;
+    completedRef.current = false;
   }, [pieceTargets, visible]);
 
   if (!visible || pieceTargets.length === 0) {
@@ -142,9 +144,13 @@ export const ReserveCascadeIntro: React.FC<ReserveCascadeIntroProps> = ({
           target={target}
           visible={visible}
           onLanded={() => {
+            if (completedRef.current) {
+              return;
+            }
             landedCountRef.current += 1;
             onPieceLand?.(landedCountRef.current);
             if (landedCountRef.current >= pieceTargets.length) {
+              completedRef.current = true;
               onComplete();
             }
           }}

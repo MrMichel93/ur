@@ -5,6 +5,7 @@ import { AuthProvider } from '@/src/auth/AuthProvider';
 import { ChallengesProvider } from '@/src/challenges/ChallengesContext';
 import { ProgressionProvider } from '@/src/progression/ProgressionContext';
 import { useAuth } from '@/src/auth/useAuth';
+import { StatusBar } from 'expo-status-bar';
 import { Stack } from 'expo-router';
 import { useEffect } from 'react';
 import { LogBox, View } from 'react-native';
@@ -76,6 +77,7 @@ function RootNavigator() {
 export default function Layout() {
   return (
     <SafeAreaProvider initialMetrics={initialWindowMetrics}>
+      <StatusBar style="light" translucent backgroundColor="transparent" />
       <AuthProvider>
         <ProgressionProvider>
           <ChallengesProvider>

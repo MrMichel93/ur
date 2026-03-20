@@ -24,6 +24,8 @@ const TRAY_SIZE_REDUCTION = 0.85;
 const TRAY_SIZE_REGAIN = 1.15;
 const DEFAULT_RESERVE_PIECE_SIZE = 34;
 const RESERVE_PIECE_SIZE_BOOST = 1.15;
+const MOBILE_VERTICAL_TRAY_ART_SCALE = 2;
+const MOBILE_VERTICAL_RESERVE_PIECE_FIT = 0.74;
 
 const TRAY_ART_FIT = {
   // Artwork-only fit tuning; does not affect piece coordinates or hitboxes.
@@ -88,6 +90,7 @@ export const PieceRail: React.FC<PieceRailProps> = ({
   const isMobile = width < 760;
   const isMobileWeb = Platform.OS === 'web' && isMobile;
   const isVertical = orientation === 'vertical';
+  const isCompactVerticalRail = isVertical && isMobile;
   const isTabletPortrait = width >= 760 && width <= 1024 && height > width;
   const railScale = isMobile ? MOBILE_RAIL_SCALE : isTabletPortrait ? 0.9 : 1;
   const railMinHeight = Math.round(RAIL_MIN_HEIGHT * railScale);
@@ -96,7 +99,7 @@ export const PieceRail: React.FC<PieceRailProps> = ({
   const trayArtScale =
     TRAY_ART_FIT.scale *
     (isVertical ? (isMobile ? 0.92 : 1) : isMobile ? 0.78 : isTabletPortrait ? 0.92 : 1) *
-    (isVertical && isMobileWeb ? 2 : 1);
+    (isCompactVerticalRail ? MOBILE_VERTICAL_TRAY_ART_SCALE : 1);
 
   useEffect(() => {
     if (active) {
@@ -127,7 +130,7 @@ export const PieceRail: React.FC<PieceRailProps> = ({
     Math.round(
       (piecePixelSize ?? DEFAULT_RESERVE_PIECE_SIZE) *
       RESERVE_PIECE_SIZE_BOOST *
-      (isMobileWeb ? 0.85 : 1),
+      (isCompactVerticalRail ? MOBILE_VERTICAL_RESERVE_PIECE_FIT : isMobileWeb ? 0.85 : 1),
     ),
   );
   const slotRefs = useRef<(View | null)[]>([]);
@@ -140,7 +143,9 @@ export const PieceRail: React.FC<PieceRailProps> = ({
     const preferredOverlapRatio = isMobile ? 0.58 : 0.3;
     const minOverlap = Math.max(1, Math.round(reservePieceSize * minOverlapRatio));
     const preferredOverlap = Math.max(minOverlap, Math.round(reservePieceSize * preferredOverlapRatio));
-    const preferredInset = Math.max(10, Math.round(reservePieceSize * 0.28));
+    const preferredInset = isCompactVerticalRail
+      ? Math.max(14, Math.round(reservePieceSize * 0.42))
+      : Math.max(10, Math.round(reservePieceSize * 0.28));
 
     if (slotCount <= 0) {
       return {
@@ -174,7 +179,7 @@ export const PieceRail: React.FC<PieceRailProps> = ({
       overlap,
       inset,
     };
-  }, [isMobile, railMainAxisSize, reservePieceSize]);
+  }, [isCompactVerticalRail, isMobile, railMainAxisSize, reservePieceSize]);
   const pieceLayout = useMemo(() => resolveStackLayout(shownCount), [resolveStackLayout, shownCount]);
   const traySlotCount = Math.max(1, totalCount);
   const trayArtLayout = useMemo(() => resolveStackLayout(traySlotCount), [resolveStackLayout, traySlotCount]);

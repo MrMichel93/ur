@@ -1,5 +1,6 @@
 import React from 'react';
 import { Animated, ImageSourcePropType, Platform, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MIN_WIDE_WEB_BACKGROUND_WIDTH } from './WideScreenBackground';
 
 export function useMobileBackground(): boolean {
@@ -21,23 +22,20 @@ export function MobileBackground({
   imageOpacity = 1,
 }: MobileBackgroundProps) {
   const { width, height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const opacity = React.useRef(new Animated.Value(0)).current;
   const overscan = Platform.OS === 'web' ? Math.max(48, Math.round(Math.max(width, height) * 0.08)) : 0;
-  const baseBounds =
-    overscan > 0
-      ? {
-          top: -overscan,
-          left: -overscan,
-          width: width + overscan * 2,
-          height: height + overscan * 2,
-        }
-      : {};
-  const imageBounds = (Platform.OS === 'web'
-    ? {
-        position: 'fixed',
-        ...baseBounds,
-      }
-    : baseBounds) as any;
+  const containerBounds = React.useMemo(
+    () =>
+      ({
+        ...(Platform.OS === 'web' ? { position: 'fixed' as const } : {}),
+        top: -overscan - insets.top,
+        left: -overscan - insets.left,
+        width: width + overscan * 2 + insets.left + insets.right,
+        height: height + overscan * 2 + insets.top + insets.bottom,
+      }) as any,
+    [height, insets.bottom, insets.left, insets.right, insets.top, overscan, width],
+  );
 
   const handleLoad = React.useCallback(() => {
     Animated.timing(opacity, {
@@ -52,24 +50,25 @@ export function MobileBackground({
   }
 
   return (
-    <View pointerEvents="none" style={styles.container}>
+    <View pointerEvents="none" style={[styles.container, containerBounds]}>
       <Animated.Image
         accessible={false}
         source={source}
         resizeMode="cover"
         onLoad={handleLoad}
-        style={[styles.image, imageBounds, { opacity }]}
+        style={[styles.image, { opacity }]}
       />
-      <View style={[styles.overlay, imageBounds, { backgroundColor: overlayColor }]} />
+      <View style={[styles.overlay, { backgroundColor: overlayColor }]} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    top: 0,
+    left: 0,
     backgroundColor: 'rgb(6, 9, 14)',
-    overflow: 'hidden',
   },
   image: {
     position: 'absolute',

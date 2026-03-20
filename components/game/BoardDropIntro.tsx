@@ -341,8 +341,6 @@ export const BoardDropIntro: React.FC<BoardDropIntroProps> = ({
 
   const translateY = useSharedValue(0);
   const rotateZ = useSharedValue(-2.6);
-  const scaleX = useSharedValue(1);
-  const scaleY = useSharedValue(1);
   const impactPulse = useSharedValue(0);
   const impactLeadTriggered = useSharedValue(0);
   const impactTriggered = useSharedValue(0);
@@ -448,8 +446,6 @@ export const BoardDropIntro: React.FC<BoardDropIntroProps> = ({
 
     translateY.value = startOffset;
     rotateZ.value = -2.6;
-    scaleX.value = 1;
-    scaleY.value = 1;
     impactPulse.value = 0;
     impactLeadTriggered.value = 0;
     impactTriggered.value = 0;
@@ -497,45 +493,9 @@ export const BoardDropIntro: React.FC<BoardDropIntroProps> = ({
       }),
     );
 
-    scaleX.value = withSequence(
-      withTiming(1, { duration: 520 }),
-      withTiming(1.012, {
-        duration: 70,
-        easing: Easing.out(Easing.quad),
-      }),
-      withTiming(0.998, {
-        duration: 110,
-        easing: Easing.out(Easing.quad),
-      }),
-      withSpring(1, {
-        damping: 16,
-        stiffness: 220,
-        mass: 0.86,
-      }),
-    );
-
-    scaleY.value = withSequence(
-      withTiming(1, { duration: 520 }),
-      withTiming(0.986, {
-        duration: 70,
-        easing: Easing.out(Easing.quad),
-      }),
-      withTiming(1.002, {
-        duration: 110,
-        easing: Easing.out(Easing.quad),
-      }),
-      withSpring(1, {
-        damping: 16,
-        stiffness: 220,
-        mass: 0.86,
-      }),
-    );
-
     return () => {
       cancelAnimation(translateY);
       cancelAnimation(rotateZ);
-      cancelAnimation(scaleX);
-      cancelAnimation(scaleY);
       cancelAnimation(impactPulse);
       cancelAnimation(impactLeadTriggered);
       cancelAnimation(impactTriggered);
@@ -546,8 +506,6 @@ export const BoardDropIntro: React.FC<BoardDropIntroProps> = ({
     impactLeadTriggered,
     impactTriggered,
     rotateZ,
-    scaleX,
-    scaleY,
     startOffset,
     targetFrame.height,
     targetFrame.width,
@@ -558,8 +516,6 @@ export const BoardDropIntro: React.FC<BoardDropIntroProps> = ({
     transform: [
       { translateY: translateY.value },
       { rotateZ: `${rotateZ.value}deg` },
-      { scaleX: scaleX.value },
-      { scaleY: scaleY.value },
     ],
   }));
 

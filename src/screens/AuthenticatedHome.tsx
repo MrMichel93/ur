@@ -163,7 +163,6 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     backgroundColor: urTheme.colors.night,
-    overflow: 'hidden',
   },
   scrollView: {
     width: '100%',
