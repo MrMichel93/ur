@@ -21,6 +21,9 @@ interface TileProps {
   col: number;
   cellSize?: number;
   piecePixelSize?: number;
+  pieceArtScale?: number;
+  pieceArtOffsetX?: number;
+  pieceArtOffsetY?: number;
   piece?: { id: string; color: PlayerColor };
   isValidTarget?: boolean;
   isSelectedPiece?: boolean;
@@ -132,6 +135,9 @@ export const Tile: React.FC<TileProps> = ({
   col,
   cellSize = 44,
   piecePixelSize,
+  pieceArtScale = 1,
+  pieceArtOffsetX = 0,
+  pieceArtOffsetY = 0,
   piece,
   isValidTarget = false,
   isSelectedPiece = false,
@@ -345,6 +351,9 @@ export const Tile: React.FC<TileProps> = ({
           <Piece
             color={piece.color}
             pixelSize={piecePixelSize}
+            artScale={pieceArtScale}
+            artOffsetX={pieceArtOffsetX}
+            artOffsetY={pieceArtOffsetY}
             highlight={isValidTarget || isSelectedPiece}
             state={isValidTarget || isSelectedPiece ? 'active' : 'idle'}
           />

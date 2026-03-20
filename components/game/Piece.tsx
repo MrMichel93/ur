@@ -23,6 +23,8 @@ interface PieceProps {
   size?: 'sm' | 'md' | 'lg';
   pixelSize?: number;
   artScale?: number;
+  artOffsetX?: number;
+  artOffsetY?: number;
   variant?: PieceVariant;
   state?: 'idle' | 'active' | 'captured';
 }
@@ -39,12 +41,8 @@ const PIECE_ART_SOURCES: Record<PieceVariant, ImageSourcePropType> = {
   reserve: require('../../assets/pieces/piece_light.png'),
 };
 
-// Tune PNG-only visual fit here for future artwork revisions (e.g. transparent padding changes).
-const PIECE_ART_FIT = {
-  scale: 1,
-  offsetX: 0,
-  offsetY: 0,
-};
+// The visible token body occupies about 62.5% of the exported PNG frame.
+export const PIECE_ART_VISIBLE_COVERAGE = 0.625;
 
 export const Piece: React.FC<PieceProps> = ({
   color,
@@ -52,6 +50,8 @@ export const Piece: React.FC<PieceProps> = ({
   size = 'md',
   pixelSize,
   artScale = 1,
+  artOffsetX = 0,
+  artOffsetY = 0,
   variant,
   state = 'idle',
 }) => {
@@ -122,7 +122,7 @@ export const Piece: React.FC<PieceProps> = ({
     return PIECE_SIZE_PRESETS[size];
   }, [pixelSize, size]);
 
-  const artSizePx = useMemo(() => Math.max(1, sizePx * PIECE_ART_FIT.scale * artScale), [artScale, sizePx]);
+  const artSizePx = useMemo(() => Math.max(1, sizePx * artScale), [artScale, sizePx]);
   // Additional 15% reduction from the prior 0.8x size target.
   const targetGlowSizePx = useMemo(() => Math.max(1, Math.round(sizePx * 0.68)), [sizePx]);
 
@@ -183,8 +183,8 @@ export const Piece: React.FC<PieceProps> = ({
               width: artSizePx,
               height: artSizePx,
               transform: [
-                { translateX: PIECE_ART_FIT.offsetX },
-                { translateY: PIECE_ART_FIT.offsetY },
+                { translateX: artOffsetX },
+                { translateY: artOffsetY },
               ],
             },
           ]}

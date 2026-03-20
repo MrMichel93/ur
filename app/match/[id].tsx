@@ -56,6 +56,7 @@ import {
 } from '@/src/offlineMatch/offlineMatchRewards';
 import { useProgression } from '@/src/progression/useProgression';
 import { useGameStore } from '@/store/useGameStore';
+import { resolveVisibleViewportSize } from '@/src/layout/matchViewport';
 import {
   PLAYTHROUGH_TUTORIAL_ID,
   PLAYTHROUGH_TUTORIAL_LESSON_COUNT,
@@ -182,6 +183,7 @@ export function GameRoom() {
   const router = useRouter();
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
+  const [webVisualViewportSize, setWebVisualViewportSize] = React.useState<{ width: number; height: number } | null>(null);
   const isMatchStageExternal = Platform.OS === 'ios';
   const [ancientCueFontLoaded, ancientCueFontError] = useFonts({
     [MATCH_CUE_FONT_FAMILY]: require('../../assets/fonts/CinzelDecorative-Bold.ttf'),
@@ -204,6 +206,54 @@ export function GameRoom() {
   const tutorialId = useMemo(
     () => (isPlaythroughTutorialId(tutorialParam) ? tutorialParam : null),
     [tutorialParam],
+  );
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') {
+      return;
+    }
+
+    const syncVisualViewport = () => {
+      const nextSize = resolveVisibleViewportSize(
+        { width, height },
+        window.visualViewport
+          ? {
+            width: window.visualViewport.width,
+            height: window.visualViewport.height,
+          }
+          : {
+            width: window.innerWidth,
+            height: window.innerHeight,
+          },
+      );
+
+      setWebVisualViewportSize((current) => {
+        if (current && current.width === nextSize.width && current.height === nextSize.height) {
+          return current;
+        }
+
+        return nextSize;
+      });
+    };
+
+    syncVisualViewport();
+
+    window.addEventListener('resize', syncVisualViewport);
+    window.visualViewport?.addEventListener('resize', syncVisualViewport);
+    window.visualViewport?.addEventListener('scroll', syncVisualViewport);
+
+    return () => {
+      window.removeEventListener('resize', syncVisualViewport);
+      window.visualViewport?.removeEventListener('resize', syncVisualViewport);
+      window.visualViewport?.removeEventListener('scroll', syncVisualViewport);
+    };
+  }, [height, width]);
+  const { width: viewportWidth, height: viewportHeight } = useMemo(
+    () =>
+      resolveVisibleViewportSize(
+        { width, height },
+        Platform.OS === 'web' ? webVisualViewportSize : null,
+      ),
+    [height, webVisualViewportSize, width],
   );
   const isOffline = useMemo(
     () =>
@@ -1671,16 +1721,16 @@ export function GameRoom() {
         : 'Online Match';
 
   const viewportHorizontalPadding = 0;
-  const stageContentWidth = Math.min(Math.max(width - viewportHorizontalPadding * 2, 0), urTheme.layout.stage.maxWidth);
-  const useSideColumns = width >= 760;
+  const stageContentWidth = Math.min(Math.max(viewportWidth - viewportHorizontalPadding * 2, 0), urTheme.layout.stage.maxWidth);
+  const useSideColumns = viewportWidth >= 760;
   const isWebLayout = Platform.OS === 'web';
-  const isMobileWebLayout = isWebLayout && width < 760;
-  const isMobileLayout = width < 760;
-  const useMobileSideReserveRails = width < 760;
+  const isMobileWebLayout = isWebLayout && viewportWidth < 760;
+  const isMobileLayout = viewportWidth < 760;
+  const useMobileSideReserveRails = viewportWidth < 760;
   const showWebSideDiceVisual = Platform.OS === 'web' && useSideColumns;
   const boardClusterGap = useSideColumns || useMobileSideReserveRails ? urTheme.spacing.xs : urTheme.spacing.sm;
   const sideColumnWidth = useSideColumns
-    ? Math.max(88, Math.min(264, Math.floor(stageContentWidth * (width < 720 ? 0.2 : 0.24))))
+    ? Math.max(88, Math.min(264, Math.floor(stageContentWidth * (viewportWidth < 720 ? 0.2 : 0.24))))
     : 0;
   const mobileReserveColumnWidth = useMobileSideReserveRails
     ? Math.max(52, Math.min(80, Math.round(stageContentWidth * 0.16)))
@@ -1698,7 +1748,7 @@ export function GameRoom() {
     : Math.max(224, Math.min(urTheme.layout.boardMax, stageContentWidth - 2));
 
   // Must match Board.tsx base width before boardScale is applied.
-  const boardBaseWidth = Math.min(Math.max(width - urTheme.spacing.lg, 0), urTheme.layout.boardMax);
+  const boardBaseWidth = Math.min(Math.max(viewportWidth - urTheme.spacing.lg, 0), urTheme.layout.boardMax);
   const boardFramePadding = urTheme.spacing.sm;
   const boardInnerPadding = urTheme.spacing.xs;
   const boardGridGap = 0;
@@ -1710,7 +1760,7 @@ export function GameRoom() {
   const verticalBoardCols = BOARD_ROWS;
   const verticalBoardGapTotal = (verticalBoardRows - 1) * boardGridGap;
   const boardSlotWidth = boardSlotSize.width > 0 ? boardSlotSize.width : boardWidthLimitByLayout;
-  const boardSlotHeight = boardSlotSize.height > 0 ? boardSlotSize.height : Math.max(0, height * (useSideColumns ? 0.9 : 0.45));
+  const boardSlotHeight = boardSlotSize.height > 0 ? boardSlotSize.height : Math.max(0, viewportHeight * (useSideColumns ? 0.9 : 0.45));
   const boardWidthLimitByHeight = Math.min(
     urTheme.layout.boardMax,
     boardOuterPadding +
@@ -1727,29 +1777,29 @@ export function GameRoom() {
   );
   const boardScale = useMobileSideReserveRails ? baseBoardScale * 0.8 : baseBoardScale;
   const reservePiecePixelSize = useMemo(
-    () => getBoardPiecePixelSize({ viewportWidth: width, boardScale, orientation: 'vertical' }),
-    [boardScale, width],
+    () => getBoardPiecePixelSize({ viewportWidth, boardScale, orientation: 'vertical' }),
+    [boardScale, viewportWidth],
   );
-  const compactSupportUi = width <= 1024;
+  const compactSupportUi = viewportWidth <= 1024;
   const scaledReservePiecePixelSize = compactSupportUi
-    ? Math.max(12, Math.round(reservePiecePixelSize * (width < 760 ? 0.864 : 0.84)))
+    ? Math.max(12, Math.round(reservePiecePixelSize * (viewportWidth < 760 ? 0.864 : 0.84)))
     : reservePiecePixelSize;
-  const stageGap = height < 760 ? urTheme.spacing.xs : urTheme.spacing.sm;
+  const stageGap = viewportHeight < 760 ? urTheme.spacing.xs : urTheme.spacing.sm;
   const viewportTopPadding = 0;
   const viewportBottomPadding = Math.max(insets.bottom, urTheme.spacing.xs);
   const mobileTopChromeOffset = isMobileLayout
-    ? Math.max(urTheme.spacing.sm, Math.round(height * 0.012))
+    ? Math.max(urTheme.spacing.sm, Math.round(viewportHeight * 0.012))
     : 0;
   const topChromeTop = insets.top + mobileTopChromeOffset;
   const topChromeHeight = 36;
   const topChromeBottom = topChromeTop + topChromeHeight;
   const scoreOverlayTop = topChromeBottom + urTheme.spacing.xs;
-  const backdropOverscan = Math.ceil(Math.max(width, height) * 0.025);
-  const canvasTopEdgeLift = Math.max(24, Math.min(96, Math.round(height * 0.07)));
-  const supportColumnBottomInset = Math.max(viewportBottomPadding + Math.round(height * 0.02), urTheme.spacing.sm);
+  const backdropOverscan = Math.ceil(Math.max(viewportWidth, viewportHeight) * 0.025);
+  const canvasTopEdgeLift = Math.max(24, Math.min(96, Math.round(viewportHeight * 0.07)));
+  const supportColumnBottomInset = Math.max(viewportBottomPadding + Math.round(viewportHeight * 0.02), urTheme.spacing.sm);
   const supportColumnTopInset = Math.max(
     scoreOverlayTop + urTheme.spacing.sm,
-    Math.round(height * 0.74) - (compactSupportUi ? 188 : 244),
+    Math.round(viewportHeight * 0.74) - (compactSupportUi ? 188 : 244),
   );
   const measuredScoreRowHeight = Math.max(
     mobileScoreRowHeight,
@@ -1796,14 +1846,14 @@ export function GameRoom() {
   const mobileBoardVisualOffset = isMobileLayout
     ? useMobileSideReserveRails
       ? 0
-      : Math.max(urTheme.spacing.md, Math.round(height * 0.024))
+      : Math.max(urTheme.spacing.md, Math.round(viewportHeight * 0.024))
     : 0;
-  const mobileBoardTopGap = Math.max(urTheme.spacing.xs, Math.round(height * 0.012));
+  const mobileBoardTopGap = Math.max(urTheme.spacing.xs, Math.round(viewportHeight * 0.012));
   const mobileWebBoardLift = useMobileSideReserveRails
-    ? Math.max(urTheme.spacing.sm, Math.round(height * 0.02))
+    ? Math.max(urTheme.spacing.sm, Math.round(viewportHeight * 0.02))
     : 0;
   const mobileChromeToScoreGap = isMobileLayout
-    ? Math.max(urTheme.spacing.sm, Math.round(height * 0.014))
+    ? Math.max(urTheme.spacing.sm, Math.round(viewportHeight * 0.014))
     : 0;
   const baseMobileScoreOverlayTop = isMobileLayout
     ? topChromeBottom + mobileChromeToScoreGap
@@ -1811,17 +1861,17 @@ export function GameRoom() {
   const baseMobileBoardOffsetTop = isMobileLayout
     ? baseMobileScoreOverlayTop + mobileStatusRowHeight + mobileBoardTopGap - mobileWebBoardLift
     : 0;
-  const mobileScoreRowInset = Math.max(urTheme.spacing.xs, Math.round(width / 65));
+  const mobileScoreRowInset = Math.max(urTheme.spacing.xs, Math.round(viewportWidth / 65));
   const mobileDarkScoreNudge = isMobileLayout
-    ? Math.max(4, Math.round(width * 0.012))
+    ? Math.max(4, Math.round(viewportWidth * 0.012))
     : 0;
   const mobileSupportOffsetTop = isMobileLayout
-    ? Math.max(urTheme.spacing.md, Math.round(height * 0.04))
+    ? Math.max(urTheme.spacing.md, Math.round(viewportHeight * 0.04))
     : 0;
   const mobileLowerClusterShift = isMobileLayout
     ? useMobileSideReserveRails
-      ? Math.max(urTheme.spacing.xs, Math.round(height * 0.012))
-      : Math.max(urTheme.spacing.md, Math.round(height * 0.024))
+      ? Math.max(urTheme.spacing.xs, Math.round(viewportHeight * 0.012))
+      : Math.max(urTheme.spacing.md, Math.round(viewportHeight * 0.024))
     : 0;
   const mobileTrayDockShift = isMobileLayout
     ? Math.max(insets.bottom, urTheme.spacing.xs)
@@ -1853,12 +1903,12 @@ export function GameRoom() {
     const overlayWidth = mobileWebRollButtonArtSize;
     const boardColumnCenterRatio = 0.4875;
     const boardGridBottom = boardTargetFrame.y + boardTargetFrame.height * (1 - boardArtInsetBottom);
-    const bottomBoundary = height - viewportBottomPadding;
+    const bottomBoundary = viewportHeight - viewportBottomPadding;
     const centeredTop = boardGridBottom + Math.max(0, bottomBoundary - boardGridBottom - overlayWidth) / 2;
     const left = Math.max(
       urTheme.spacing.xs,
       Math.min(
-        Math.max(urTheme.spacing.xs, width - overlayWidth - urTheme.spacing.xs),
+        Math.max(urTheme.spacing.xs, viewportWidth - overlayWidth - urTheme.spacing.xs),
         Math.round(boardTargetFrame.x + boardTargetFrame.width * boardColumnCenterRatio - overlayWidth / 2),
       ),
     );
@@ -1872,13 +1922,13 @@ export function GameRoom() {
   }, [
     boardArtInsetBottom,
     boardTargetFrame,
-    height,
     mobileWebRollButtonArtSize,
     useMobileSideReserveRails,
     viewportBottomPadding,
-    width,
+    viewportHeight,
+    viewportWidth,
   ]);
-  const showMobileWebUnderBoardDiceOverlay = mobileWebUnderBoardDiceFrame !== null;
+  const showMobileWebUnderBoardDiceOverlay = isWebLayout && mobileWebUnderBoardDiceFrame !== null;
   const mobileScoreOverlayTop = baseMobileScoreOverlayTop + mobileContentVerticalShift;
   const mobileBoardOffsetTop = baseMobileBoardOffsetTop + mobileContentVerticalShift;
 
@@ -1963,7 +2013,7 @@ export function GameRoom() {
     const left = Math.max(
       urTheme.spacing.xs,
       Math.min(
-        Math.max(urTheme.spacing.xs, width - overlayWidth - urTheme.spacing.xs),
+        Math.max(urTheme.spacing.xs, viewportWidth - overlayWidth - urTheme.spacing.xs),
         Math.round(darkTrayFrame.x + darkTrayFrame.width / 2 - overlayWidth / 2),
       ),
     );
@@ -1973,7 +2023,7 @@ export function GameRoom() {
       top: mobileScoreOverlayTop,
       width: overlayWidth,
     };
-  }, [darkTrayFrame, mobileScoreOverlayTop, useMobileSideReserveRails, width]);
+  }, [darkTrayFrame, mobileScoreOverlayTop, useMobileSideReserveRails, viewportWidth]);
   const mobileWebTrayRollResultFrame = useMemo(() => {
     if (
       !useMobileSideReserveRails ||
@@ -1994,7 +2044,7 @@ export function GameRoom() {
     const left = Math.max(
       urTheme.spacing.xs,
       Math.min(
-        Math.max(urTheme.spacing.xs, width - resultWidth - urTheme.spacing.xs),
+        Math.max(urTheme.spacing.xs, viewportWidth - resultWidth - urTheme.spacing.xs),
         Math.round(lightTrayFrame.x + lightTrayFrame.width / 2 - resultWidth / 2),
       ),
     );
@@ -2014,7 +2064,7 @@ export function GameRoom() {
     showMobileRollResult,
     useMobileSideReserveRails,
     verticalBoardRows,
-    width,
+    viewportWidth,
   ]);
   useEffect(() => {
     if (useMobileSideReserveRails) {
@@ -2117,7 +2167,17 @@ export function GameRoom() {
   );
 
   return (
-    <View style={styles.screen}>
+    <View
+      style={[
+        styles.screen,
+        isWebLayout
+          ? {
+            height: viewportHeight,
+            maxHeight: viewportHeight,
+          }
+          : null,
+      ]}
+    >
       <Stack.Screen options={{ headerShown: false }} />
 
       <View pointerEvents="none" style={styles.backdropLayer}>
@@ -2128,17 +2188,17 @@ export function GameRoom() {
             styles.backdropImage,
             {
               left: -backdropOverscan - insets.left,
-              width: width + backdropOverscan * 2 + insets.left + insets.right,
+              width: viewportWidth + backdropOverscan * 2 + insets.left + insets.right,
               top: -backdropOverscan - canvasTopEdgeLift - insets.top,
-              height: height + backdropOverscan * 2 + canvasTopEdgeLift + insets.top + insets.bottom,
+              height: viewportHeight + backdropOverscan * 2 + canvasTopEdgeLift + insets.top + insets.bottom,
             },
           ]}
         />
       </View>
 
       <AmbientBackgroundEffects
-        width={width}
-        height={height}
+        width={viewportWidth}
+        height={viewportHeight}
         centerSafeZone={boardTargetFrame}
         bugEnabled={bugAnimationEnabled}
         dustEnabled={MATCH_AMBIENT_EFFECTS.dustEnabled}
@@ -2155,8 +2215,8 @@ export function GameRoom() {
           durationMs={diceAnimationDurationMs}
           playbackId={diceStagePlaybackId}
           rollValue={gameState.rollValue}
-          viewportHeight={height}
-          viewportWidth={width}
+          viewportHeight={viewportHeight}
+          viewportWidth={viewportWidth}
           visible
         />
       ) : null}
@@ -2684,7 +2744,7 @@ export function GameRoom() {
                         compact={compactSupportUi}
                         showNumericResult={false}
                         showStatusCopy={introsComplete}
-                        showVisual={false}
+                        showVisual={introsComplete && showLocalDiceVisual && !showMobileWebDetachedDiceVisual}
                         visualPlacement={detachedDiceVisualPlacement}
                         artSize={mobileWebRollButtonArtSize}
                       />

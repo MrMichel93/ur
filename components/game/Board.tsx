@@ -26,7 +26,7 @@ import Animated, {
   withSequence,
   withTiming,
 } from 'react-native-reanimated';
-import { Piece } from './Piece';
+import { PIECE_ART_VISIBLE_COVERAGE, Piece } from './Piece';
 import { Tile } from './Tile';
 
 export const BOARD_IMAGE_SOURCE = require('../../assets/board/board_design.png');
@@ -99,8 +99,9 @@ const SPAWN_CUE_MIN_SIZE = 48;
 const SCORE_CUE_MIN_SIZE = 44;
 const SCORE_CUE_MAX_SIZE = 58;
 const MIN_TILE_SHELL_PADDING = 2;
-// Controls how much of each tile the on-board piece art occupies.
-const BOARD_PIECE_TILE_COVERAGE = 0.86;
+const BOARD_PIECE_VISIBLE_TILE_COVERAGE = 0.75;
+const BOARD_PIECE_ART_SCALE = BOARD_PIECE_VISIBLE_TILE_COVERAGE / PIECE_ART_VISIBLE_COVERAGE;
+const BOARD_PIECE_ART_OFFSET_Y_RATIO = 0.02;
 const SHOW_BOARD_ALIGNMENT_DEBUG = false;
 
 interface BoardPiecePixelSizeOptions {
@@ -109,19 +110,33 @@ interface BoardPiecePixelSizeOptions {
   orientation?: BoardOrientation;
 }
 
-export const getBoardPiecePixelSize = ({
+export interface BoardPieceRenderMetrics {
+  pixelSize: number;
+  artScale: number;
+  artOffsetY: number;
+}
+
+export const getBoardPieceRenderMetrics = ({
   viewportWidth,
   boardScale = 1,
   orientation = 'horizontal',
-}: BoardPiecePixelSizeOptions): number => {
+}: BoardPiecePixelSizeOptions): BoardPieceRenderMetrics => {
   const displayCols = orientation === 'vertical' ? BOARD_ROWS : BOARD_COLS;
   const boardWidth = Math.min(viewportWidth - urTheme.spacing.lg, urTheme.layout.boardMax) * boardScale;
   const gridWidth = boardWidth - FRAME_PADDING * 2 - INNER_PADDING * 2;
   const cellSize = gridWidth / displayCols;
   const tileShellPadding = Math.max(MIN_TILE_SHELL_PADDING, Math.round(cellSize * 0.04));
-  const renderedTileSize = Math.max(18, Math.round(cellSize - tileShellPadding * 2));
-  return Math.max(14, Math.round(renderedTileSize * BOARD_PIECE_TILE_COVERAGE));
+  const pixelSize = Math.max(18, Math.round(cellSize - tileShellPadding * 2));
+
+  return {
+    pixelSize,
+    artScale: BOARD_PIECE_ART_SCALE,
+    artOffsetY: Math.round(pixelSize * BOARD_PIECE_ART_SCALE * BOARD_PIECE_ART_OFFSET_Y_RATIO * 100) / 100,
+  };
 };
+
+export const getBoardPiecePixelSize = (options: BoardPiecePixelSizeOptions): number =>
+  getBoardPieceRenderMetrics(options).pixelSize;
 
 // Gameplay geometry is canonical; adjust this object if the PNG asset changes.
 const BOARD_ART_ALIGNMENT: BoardArtAlignmentConfig = {
@@ -225,11 +240,13 @@ export const Board: React.FC<BoardProps> = ({
     () => Math.max(18, Math.round(boardLayout.cellSize - tileShellPadding * 2)),
     [boardLayout.cellSize, tileShellPadding],
   );
-  // On-board PNG size is derived from board/tile geometry, not fixed presets.
-  const boardPiecePixelSize = useMemo(
-    () => Math.max(14, Math.round(renderedTileSize * BOARD_PIECE_TILE_COVERAGE)),
-    [renderedTileSize],
+  const boardPieceRenderMetrics = useMemo(
+    () => getBoardPieceRenderMetrics({ viewportWidth: width, boardScale, orientation }),
+    [boardScale, orientation, width],
   );
+  const boardPiecePixelSize = boardPieceRenderMetrics.pixelSize;
+  const boardPieceArtScale = boardPieceRenderMetrics.artScale;
+  const boardPieceArtOffsetY = boardPieceRenderMetrics.artOffsetY;
   const spawnCueSize = useMemo(
     () => Math.max(SPAWN_CUE_MIN_SIZE, Math.round(boardPiecePixelSize * 1.08)),
     [boardPiecePixelSize],
@@ -868,6 +885,8 @@ export const Board: React.FC<BoardProps> = ({
               col={c}
               cellSize={renderedTileSize}
               piecePixelSize={boardPiecePixelSize}
+              pieceArtScale={boardPieceArtScale}
+              pieceArtOffsetY={boardPieceArtOffsetY}
               piece={piece}
               isValidTarget={isValidTarget}
               isSelectedPiece={isFocusedPiece}
@@ -1100,6 +1119,8 @@ export const Board: React.FC<BoardProps> = ({
             <Piece
               color={spawnCueColor}
               pixelSize={boardPiecePixelSize}
+              artScale={boardPieceArtScale}
+              artOffsetY={boardPieceArtOffsetY}
               variant={spawnCueColor}
               highlight={spawnCueActive}
               state={spawnCueActive ? 'active' : 'idle'}
