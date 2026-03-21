@@ -175,12 +175,13 @@ export default function Lobby() {
         overlayColor="rgba(7, 10, 16, 0.24)"
       />
       <Image
+        pointerEvents="none"
         source={urTextures.woodDark}
         resizeMode="repeat"
         style={[styles.pageTexture, showWideBackground && styles.pageTextureWide]}
       />
-      <View style={styles.pageGlow} />
-      <View style={styles.pageShade} />
+      <View pointerEvents="none" style={styles.pageGlow} />
+      <View pointerEvents="none" style={styles.pageShade} />
 
       <ScrollView
         style={styles.scrollView}
@@ -212,8 +213,8 @@ export default function Lobby() {
 
         <View style={styles.cardGrid}>
           <View style={styles.card}>
-            <Image source={urTextures.goldInlay} resizeMode="repeat" style={styles.cardTexture} />
-            <View style={styles.cardBorder} />
+            <Image pointerEvents="none" source={urTextures.goldInlay} resizeMode="repeat" style={styles.cardTexture} />
+            <View pointerEvents="none" style={styles.cardBorder} />
 
             <Text style={styles.title}>Find Opponent</Text>
             <Text style={styles.subtitle}>
@@ -233,8 +234,8 @@ export default function Lobby() {
           </View>
 
           <View style={styles.card}>
-            <Image source={urTextures.goldInlay} resizeMode="repeat" style={styles.cardTexture} />
-            <View style={styles.cardBorder} />
+            <Image pointerEvents="none" source={urTextures.goldInlay} resizeMode="repeat" style={styles.cardTexture} />
+            <View pointerEvents="none" style={styles.cardBorder} />
 
             <Text style={styles.title}>Create Private Game</Text>
             <Text style={styles.subtitle}>
@@ -293,8 +294,8 @@ export default function Lobby() {
           </View>
 
           <View style={styles.card}>
-            <Image source={urTextures.goldInlay} resizeMode="repeat" style={styles.cardTexture} />
-            <View style={styles.cardBorder} />
+            <Image pointerEvents="none" source={urTextures.goldInlay} resizeMode="repeat" style={styles.cardTexture} />
+            <View pointerEvents="none" style={styles.cardBorder} />
 
             <Text style={styles.title}>Enter Private Game Code</Text>
             <Text style={styles.subtitle}>
@@ -304,7 +305,7 @@ export default function Lobby() {
             <Text style={styles.statusText}>{joinStatusLabel}</Text>
 
             <TextInput
-              value={normalizedPrivateCodeInput}
+              value={privateCodeInput}
               onChangeText={(value) => setPrivateCodeInput(normalizePrivateMatchCodeInput(value))}
               autoCapitalize="characters"
               autoCorrect={false}
