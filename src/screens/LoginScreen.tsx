@@ -65,7 +65,7 @@ export default function LoginScreen() {
           <Text style={styles.eyebrow}>Authentication</Text>
           <Text style={styles.title}>Enter The Royal Court</Text>
           <Text style={styles.subtitle}>
-            Continue as a guest for instant play, or sign in with Google so your identity is ready for future online account linking.
+            Continue as a guest for instant play, or sign in with Google to set up your public username for online play, tournaments, and friend systems.
           </Text>
 
           <View style={styles.buttonStack}>

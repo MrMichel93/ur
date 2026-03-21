@@ -13,10 +13,14 @@ const mockLoginAsGuest = jest.fn();
 const mockGoogleLogin = jest.fn();
 const mockNakamaClearSession = jest.fn();
 const mockNakamaGetClient = jest.fn();
+const mockNakamaGetSession = jest.fn();
 const mockReset = jest.fn();
 const mockUseGameStoreGetState = jest.fn();
 const mockStartAuthenticatedPresence = jest.fn();
 const mockStopAuthenticatedPresence = jest.fn();
+const mockGetUsernameOnboardingStatus = jest.fn();
+const mockClaimUsername = jest.fn();
+const mockUpdateAccountDisplayName = jest.fn();
 
 jest.mock('./sessionStorage', () => ({
   clearSession: (...args: unknown[]) => mockClearSession(...args),
@@ -42,7 +46,7 @@ jest.mock('./googleAuth', () => ({
   useGoogleAuth: () => ({
     isReady: true,
     isProcessing: false,
-    login: mockGoogleLogin,
+    login: (...args: unknown[]) => mockGoogleLogin(...args),
     redirectUri: 'https://example.com/oauthredirect',
   }),
 }));
@@ -56,7 +60,14 @@ jest.mock('@/services/nakama', () => ({
   nakamaService: {
     clearSession: (...args: unknown[]) => mockNakamaClearSession(...args),
     getClient: () => mockNakamaGetClient(),
+    getSession: (...args: unknown[]) => mockNakamaGetSession(...args),
   },
+}));
+
+jest.mock('@/services/usernameOnboarding', () => ({
+  getUsernameOnboardingStatus: (...args: unknown[]) => mockGetUsernameOnboardingStatus(...args),
+  claimUsername: (...args: unknown[]) => mockClaimUsername(...args),
+  updateAccountDisplayName: (...args: unknown[]) => mockUpdateAccountDisplayName(...args),
 }));
 
 jest.mock('@/store/useGameStore', () => ({
@@ -94,6 +105,18 @@ describe('AuthProvider', () => {
     mockNakamaGetClient.mockReturnValue({
       sessionRefresh: jest.fn(),
     });
+    mockNakamaGetSession.mockReturnValue(null);
+    mockGetUsernameOnboardingStatus.mockResolvedValue({
+      onboardingComplete: false,
+      currentUsername: null,
+      suggestedUsername: 'SuggestedUser',
+    });
+    mockClaimUsername.mockResolvedValue({
+      success: true,
+      usernameDisplay: 'RoyalMichel',
+      onboardingComplete: true,
+    });
+    mockUpdateAccountDisplayName.mockResolvedValue(undefined);
   });
 
   it('restores a stored session on mount', async () => {
@@ -266,7 +289,8 @@ describe('AuthProvider', () => {
     await waitFor(() => {
       expect(mockGoogleLogin).toHaveBeenCalledTimes(1);
       expect(mockSaveSession).toHaveBeenCalledWith(googleUser, 'google-token', 'google-refresh');
-      expect(mockStartAuthenticatedPresence).toHaveBeenCalledTimes(1);
+      expect(mockStartAuthenticatedPresence).not.toHaveBeenCalled();
+      expect(mockStopAuthenticatedPresence).toHaveBeenCalled();
       expect(view.getByTestId('auth-state').props.children).toBe('Google User');
     });
   });

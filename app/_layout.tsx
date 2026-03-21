@@ -18,10 +18,13 @@ LogBox.ignoreLogs([
 ]);
 
 function RootNavigator() {
-  const { user } = useAuth();
+  const { user, isUsernameOnboardingLoading, isUsernameOnboardingRequired } = useAuth();
+  const canSendPresenceHeartbeat =
+    Boolean(user) &&
+    (user?.provider !== 'google' || (!isUsernameOnboardingLoading && !isUsernameOnboardingRequired));
 
   useEffect(() => {
-    if (!user) {
+    if (!canSendPresenceHeartbeat) {
       return;
     }
 
@@ -45,7 +48,7 @@ function RootNavigator() {
     return () => {
       clearInterval(intervalId);
     };
-  }, [user]);
+  }, [canSendPresenceHeartbeat]);
 
   return (
     <View style={{ flex: 1, backgroundColor: urTheme.colors.night }}>
@@ -65,6 +68,7 @@ function RootNavigator() {
       >
         <Stack.Screen name="index" options={{ title: 'Royal Game of Ur', headerShown: false }} />
         <Stack.Screen name="challenges" options={{ title: 'Challenges' }} />
+        <Stack.Screen name="username-onboarding" options={{ headerShown: false }} />
         <Stack.Screen name="(game)" options={{ headerShown: false }} />
         <Stack.Screen name="match" options={{ headerShown: false }} />
         <Stack.Screen name="tutorial" options={{ headerShown: false }} />

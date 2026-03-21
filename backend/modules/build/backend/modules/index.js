@@ -1626,11 +1626,438 @@ var generatePrivateMatchCode = (random = Math.random) => {
   return code;
 };
 
+// shared/usernameOnboarding.ts
+var USERNAME_MIN_LENGTH = 3;
+var USERNAME_MAX_LENGTH = 16;
+var USERNAME_ALLOWED_PATTERN = /^[A-Za-z0-9_]+$/;
+var normalizeUsernameInput = (input) => {
+  const trimmed = input.trim();
+  return {
+    input,
+    trimmed,
+    display: trimmed,
+    canonical: trimmed.toLowerCase()
+  };
+};
+var validateUsername = (input) => {
+  const normalized = normalizeUsernameInput(input);
+  if (normalized.trimmed.length === 0) {
+    return __spreadProps(__spreadValues({}, normalized), {
+      isValid: false,
+      errorMessage: "Username is required."
+    });
+  }
+  if (normalized.trimmed.length < USERNAME_MIN_LENGTH || normalized.trimmed.length > USERNAME_MAX_LENGTH) {
+    return __spreadProps(__spreadValues({}, normalized), {
+      isValid: false,
+      errorMessage: "Username must be 3-16 characters long."
+    });
+  }
+  if (!USERNAME_ALLOWED_PATTERN.test(normalized.trimmed)) {
+    return __spreadProps(__spreadValues({}, normalized), {
+      isValid: false,
+      errorMessage: "Username can only contain letters, numbers, and underscores."
+    });
+  }
+  return __spreadProps(__spreadValues({}, normalized), {
+    isValid: true,
+    errorMessage: null
+  });
+};
+var sanitizeUsernameSuggestionBase = (input) => {
+  const trimmed = input.trim();
+  if (!trimmed) {
+    return "";
+  }
+  return trimmed.replace(/[\s-]+/g, "_").replace(/[^A-Za-z0-9_]/g, "").replace(/_+/g, "_").replace(/^_+|_+$/g, "").slice(0, USERNAME_MAX_LENGTH);
+};
+
+// backend/modules/usernameOnboarding.ts
+var SYSTEM_USER_ID = "00000000-0000-0000-0000-000000000000";
+var RPC_GET_USERNAME_ONBOARDING_STATUS = "get_username_onboarding_status";
+var RPC_CLAIM_USERNAME = "claim_username";
+var USERNAME_PROFILE_COLLECTION = "user_profile";
+var USERNAME_PROFILE_KEY = "profile";
+var USERNAME_CANONICAL_INDEX_COLLECTION = "username_canonical_index";
+var FALLBACK_SUGGESTION_BASES = ["Rosette", "Lapis", "Sumer", "Reed", "RoyalUr"];
+var readStringField3 = (value, keys) => {
+  const record = asRecord(value);
+  if (!record) {
+    return null;
+  }
+  for (const key of keys) {
+    const field = record[key];
+    if (typeof field === "string" && field.length > 0) {
+      return field;
+    }
+  }
+  return null;
+};
+var readBooleanField = (value, keys) => {
+  const record = asRecord(value);
+  if (!record) {
+    return null;
+  }
+  for (const key of keys) {
+    const field = record[key];
+    if (typeof field === "boolean") {
+      return field;
+    }
+  }
+  return null;
+};
+var createDefaultUsernameProfile = (userId, now) => ({
+  userId,
+  usernameDisplay: null,
+  usernameCanonical: null,
+  onboardingComplete: false,
+  authProvider: "google",
+  createdAt: now,
+  updatedAt: now
+});
+var normalizeUsernameProfile = (rawValue, userId, fallbackTimestamp = (/* @__PURE__ */ new Date()).toISOString()) => {
+  var _a, _b;
+  const defaults = createDefaultUsernameProfile(userId, fallbackTimestamp);
+  const usernameDisplay = readStringField3(rawValue, ["usernameDisplay", "username_display"]);
+  const usernameCanonical = readStringField3(rawValue, ["usernameCanonical", "username_canonical"]);
+  const createdAt = (_a = readStringField3(rawValue, ["createdAt", "created_at"])) != null ? _a : defaults.createdAt;
+  const updatedAt = (_b = readStringField3(rawValue, ["updatedAt", "updated_at"])) != null ? _b : defaults.updatedAt;
+  const onboardingComplete = readBooleanField(rawValue, ["onboardingComplete", "onboarding_complete"]);
+  const hasValidUsername = Boolean(usernameDisplay && usernameCanonical);
+  return {
+    userId,
+    usernameDisplay: usernameDisplay != null ? usernameDisplay : null,
+    usernameCanonical: usernameCanonical ? usernameCanonical.toLowerCase() : null,
+    onboardingComplete: Boolean(onboardingComplete && hasValidUsername),
+    authProvider: "google",
+    createdAt,
+    updatedAt
+  };
+};
+var normalizeUsernameClaimIndexRecord = (rawValue) => {
+  const record = asRecord(rawValue);
+  if (!record) {
+    return null;
+  }
+  const userId = readStringField3(record, ["userId", "user_id"]);
+  const usernameDisplay = readStringField3(record, ["usernameDisplay", "username_display"]);
+  const usernameCanonical = readStringField3(record, ["usernameCanonical", "username_canonical"]);
+  const claimedAt = readStringField3(record, ["claimedAt", "claimed_at"]);
+  const updatedAt = readStringField3(record, ["updatedAt", "updated_at"]);
+  if (!userId || !usernameDisplay || !usernameCanonical || !claimedAt || !updatedAt) {
+    return null;
+  }
+  return {
+    userId,
+    usernameDisplay,
+    usernameCanonical: usernameCanonical.toLowerCase(),
+    claimedAt,
+    updatedAt
+  };
+};
+var readUsernameProfileObject = (nk, userId) => {
+  const objects = nk.storageRead([
+    {
+      collection: USERNAME_PROFILE_COLLECTION,
+      key: USERNAME_PROFILE_KEY,
+      userId
+    }
+  ]);
+  return findStorageObject(objects, USERNAME_PROFILE_COLLECTION, USERNAME_PROFILE_KEY, userId);
+};
+var readUsernameProfile = (nk, userId) => {
+  const object = readUsernameProfileObject(nk, userId);
+  return {
+    object,
+    profile: normalizeUsernameProfile(object == null ? void 0 : object.value, userId)
+  };
+};
+var readUsernameCanonicalIndex = (nk, usernameCanonical) => {
+  const objects = nk.storageRead([
+    {
+      collection: USERNAME_CANONICAL_INDEX_COLLECTION,
+      key: usernameCanonical,
+      userId: SYSTEM_USER_ID
+    }
+  ]);
+  const object = findStorageObject(
+    objects,
+    USERNAME_CANONICAL_INDEX_COLLECTION,
+    usernameCanonical,
+    SYSTEM_USER_ID
+  );
+  return {
+    object,
+    record: normalizeUsernameClaimIndexRecord(object == null ? void 0 : object.value)
+  };
+};
+var buildClaimUsernameError = (errorCode, errorMessage) => ({
+  success: false,
+  errorCode,
+  errorMessage
+});
+var buildClaimUsernameSuccess = (usernameDisplay) => ({
+  success: true,
+  usernameDisplay,
+  onboardingComplete: true
+});
+var parseStatusRequest = (payload) => {
+  if (!payload) {
+    return {};
+  }
+  const data = asRecord(JSON.parse(payload));
+  if (!data) {
+    return {};
+  }
+  return {
+    displayNameHint: typeof data.displayNameHint === "string" ? data.displayNameHint : null,
+    emailHint: typeof data.emailHint === "string" ? data.emailHint : null
+  };
+};
+var parseClaimUsernameRequest = (payload) => {
+  if (!payload) {
+    return {
+      username: ""
+    };
+  }
+  const data = asRecord(JSON.parse(payload));
+  return {
+    username: typeof (data == null ? void 0 : data.username) === "string" ? data.username : ""
+  };
+};
+var ensureUsernameProfile = (nk, userId) => {
+  const existing = readUsernameProfile(nk, userId);
+  if (existing.object) {
+    return existing;
+  }
+  const createdAt = (/* @__PURE__ */ new Date()).toISOString();
+  const nextProfile = createDefaultUsernameProfile(userId, createdAt);
+  try {
+    nk.storageWrite([
+      {
+        collection: USERNAME_PROFILE_COLLECTION,
+        key: USERNAME_PROFILE_KEY,
+        userId,
+        value: nextProfile,
+        version: "*",
+        permissionRead: STORAGE_PERMISSION_NONE,
+        permissionWrite: STORAGE_PERMISSION_NONE
+      }
+    ]);
+  } catch (e) {
+  }
+  return readUsernameProfile(nk, userId);
+};
+var createDeterministicNumber = (input, digits = 3) => {
+  let total = 0;
+  for (let index = 0; index < input.length; index += 1) {
+    total = (total * 33 + input.charCodeAt(index)) % 1e5;
+  }
+  const lowerBound = Math.pow(10, Math.max(1, digits) - 1);
+  const range = Math.pow(10, Math.max(1, digits)) - lowerBound;
+  const value = lowerBound + (range > 0 ? total % range : total % 10);
+  return String(value);
+};
+var appendNumericSuffix = (base, suffix) => {
+  const suffixValue = suffix.replace(/[^0-9]/g, "");
+  if (!suffixValue) {
+    return base.slice(0, USERNAME_MAX_LENGTH);
+  }
+  const trimmedBase = base.slice(0, Math.max(USERNAME_MIN_LENGTH, USERNAME_MAX_LENGTH - suffixValue.length));
+  return `${trimmedBase}${suffixValue}`.slice(0, USERNAME_MAX_LENGTH);
+};
+var buildSuggestionBaseCandidates = (request, userId) => {
+  var _a, _b, _c, _d, _e;
+  const displayNameHints = [
+    (_a = request.displayNameHint) != null ? _a : "",
+    (_c = (_b = request.displayNameHint) == null ? void 0 : _b.split(/\s+/)[0]) != null ? _c : ""
+  ];
+  const emailHint = (_e = (_d = request.emailHint) == null ? void 0 : _d.split("@")[0]) != null ? _e : "";
+  const fallbackBases = FALLBACK_SUGGESTION_BASES.map((base) => {
+    const themedBase = sanitizeUsernameSuggestionBase(base);
+    const suffix = createDeterministicNumber(`${userId}:${base}`, 3);
+    return appendNumericSuffix(themedBase, suffix);
+  });
+  const rawCandidates = [
+    ...displayNameHints,
+    emailHint,
+    ...FALLBACK_SUGGESTION_BASES,
+    ...fallbackBases
+  ];
+  const deduped = /* @__PURE__ */ new Set();
+  rawCandidates.forEach((candidate) => {
+    const sanitized = sanitizeUsernameSuggestionBase(candidate);
+    if (!sanitized) {
+      return;
+    }
+    deduped.add(sanitized);
+    if (sanitized.length < USERNAME_MIN_LENGTH) {
+      deduped.add(sanitizeUsernameSuggestionBase(`Ur${sanitized}`));
+    }
+    deduped.add(appendNumericSuffix(sanitized, createDeterministicNumber(`${userId}:${sanitized}`, 3)));
+    deduped.add(appendNumericSuffix(sanitized, createDeterministicNumber(`${sanitized}:${userId}`, 4)));
+  });
+  return [...deduped].filter((candidate) => validateUsername(candidate).isValid);
+};
+var isUsernameCanonicalAvailable = (nk, usernameCanonical, userId) => {
+  const existing = readUsernameCanonicalIndex(nk, usernameCanonical).record;
+  return !existing || existing.userId === userId;
+};
+var suggestAvailableUsername = (nk, request, userId) => {
+  const candidates = buildSuggestionBaseCandidates(request, userId);
+  for (const candidate of candidates) {
+    const validation = validateUsername(candidate);
+    if (!validation.isValid) {
+      continue;
+    }
+    if (isUsernameCanonicalAvailable(nk, validation.canonical, userId)) {
+      return validation.display;
+    }
+  }
+  for (let attempt = 0; attempt < 200; attempt += 1) {
+    const base = FALLBACK_SUGGESTION_BASES[attempt % FALLBACK_SUGGESTION_BASES.length];
+    const suffix = createDeterministicNumber(`${userId}:${attempt}`, 4);
+    const candidate = appendNumericSuffix(sanitizeUsernameSuggestionBase(base), suffix);
+    const validation = validateUsername(candidate);
+    if (validation.isValid && isUsernameCanonicalAvailable(nk, validation.canonical, userId)) {
+      return validation.display;
+    }
+  }
+  return "UrPlayer";
+};
+var requireCompletedUsernameOnboarding = (nk, userId) => {
+  const { object, profile } = readUsernameProfile(nk, userId);
+  if (!object || profile.onboardingComplete) {
+    return;
+  }
+  throw new Error("Choose a username before accessing multiplayer or social features.");
+};
+var rpcGetUsernameOnboardingStatus = (ctx, logger, nk, payload) => {
+  if (!ctx.userId) {
+    throw new Error("Authentication required.");
+  }
+  const request = parseStatusRequest(payload);
+  const { profile } = ensureUsernameProfile(nk, ctx.userId);
+  const response = profile.onboardingComplete && profile.usernameDisplay ? {
+    onboardingComplete: true,
+    currentUsername: profile.usernameDisplay,
+    suggestedUsername: null
+  } : {
+    onboardingComplete: false,
+    currentUsername: null,
+    suggestedUsername: suggestAvailableUsername(nk, request, ctx.userId)
+  };
+  logger.info("Username onboarding status requested for user %s (complete=%s).", ctx.userId, response.onboardingComplete);
+  return JSON.stringify(response);
+};
+var rpcClaimUsername = (ctx, logger, nk, payload) => {
+  var _a, _b, _c, _d;
+  if (!ctx.userId) {
+    throw new Error("Authentication required.");
+  }
+  const request = parseClaimUsernameRequest(payload);
+  const validation = validateUsername(request.username);
+  if (!validation.isValid) {
+    return JSON.stringify(
+      buildClaimUsernameError("INVALID_USERNAME", (_a = validation.errorMessage) != null ? _a : "Username is invalid.")
+    );
+  }
+  for (let attempt = 1; attempt <= MAX_WRITE_ATTEMPTS; attempt += 1) {
+    const objects = nk.storageRead([
+      {
+        collection: USERNAME_PROFILE_COLLECTION,
+        key: USERNAME_PROFILE_KEY,
+        userId: ctx.userId
+      },
+      {
+        collection: USERNAME_CANONICAL_INDEX_COLLECTION,
+        key: validation.canonical,
+        userId: SYSTEM_USER_ID
+      }
+    ]);
+    const profileObject = findStorageObject(objects, USERNAME_PROFILE_COLLECTION, USERNAME_PROFILE_KEY, ctx.userId);
+    const indexObject = findStorageObject(
+      objects,
+      USERNAME_CANONICAL_INDEX_COLLECTION,
+      validation.canonical,
+      SYSTEM_USER_ID
+    );
+    const profile = normalizeUsernameProfile(profileObject == null ? void 0 : profileObject.value, ctx.userId);
+    const existingIndexRecord = normalizeUsernameClaimIndexRecord(indexObject == null ? void 0 : indexObject.value);
+    if (profile.onboardingComplete && profile.usernameDisplay && profile.usernameCanonical === validation.canonical) {
+      return JSON.stringify(buildClaimUsernameSuccess(profile.usernameDisplay));
+    }
+    if (profile.onboardingComplete) {
+      return JSON.stringify(
+        buildClaimUsernameError("USERNAME_ALREADY_SET", "Your username has already been claimed.")
+      );
+    }
+    if (existingIndexRecord && existingIndexRecord.userId !== ctx.userId) {
+      return JSON.stringify(
+        buildClaimUsernameError("USERNAME_TAKEN", "That username is already taken.")
+      );
+    }
+    const now = (/* @__PURE__ */ new Date()).toISOString();
+    const nextProfile = {
+      userId: ctx.userId,
+      usernameDisplay: validation.display,
+      usernameCanonical: validation.canonical,
+      onboardingComplete: true,
+      authProvider: "google",
+      createdAt: profile.createdAt,
+      updatedAt: now
+    };
+    const nextIndexRecord = {
+      userId: ctx.userId,
+      usernameDisplay: validation.display,
+      usernameCanonical: validation.canonical,
+      claimedAt: (_b = existingIndexRecord == null ? void 0 : existingIndexRecord.claimedAt) != null ? _b : now,
+      updatedAt: now
+    };
+    try {
+      nk.storageWrite([
+        {
+          collection: USERNAME_PROFILE_COLLECTION,
+          key: USERNAME_PROFILE_KEY,
+          userId: ctx.userId,
+          value: nextProfile,
+          version: profileObject ? (_c = getStorageObjectVersion(profileObject)) != null ? _c : "" : "*",
+          permissionRead: STORAGE_PERMISSION_NONE,
+          permissionWrite: STORAGE_PERMISSION_NONE
+        },
+        {
+          collection: USERNAME_CANONICAL_INDEX_COLLECTION,
+          key: validation.canonical,
+          userId: SYSTEM_USER_ID,
+          value: nextIndexRecord,
+          version: indexObject ? (_d = getStorageObjectVersion(indexObject)) != null ? _d : "" : "*",
+          permissionRead: STORAGE_PERMISSION_NONE,
+          permissionWrite: STORAGE_PERMISSION_NONE
+        }
+      ]);
+      logger.info("User %s claimed username %s.", ctx.userId, validation.display);
+      return JSON.stringify(buildClaimUsernameSuccess(validation.display));
+    } catch (error) {
+      logger.warn(
+        "Username claim write attempt %d/%d failed for user %s (%s): %s",
+        attempt,
+        MAX_WRITE_ATTEMPTS,
+        ctx.userId,
+        validation.canonical,
+        getErrorMessage(error)
+      );
+    }
+  }
+  return JSON.stringify(
+    buildClaimUsernameError("SERVER_ERROR", "Unable to claim a username right now. Please try again.")
+  );
+};
+
 // backend/modules/index.ts
 var TICK_RATE = 10;
 var MAX_PLAYERS = 2;
 var ONLINE_TTL_MS = 3e4;
-var SYSTEM_USER_ID = "00000000-0000-0000-0000-000000000000";
+var SYSTEM_USER_ID2 = "00000000-0000-0000-0000-000000000000";
 var RPC_AUTH_LINK_CUSTOM = "auth_link_custom";
 var RPC_GET_PROGRESSION_NAME = RPC_GET_PROGRESSION;
 var RPC_GET_USER_XP_PROGRESS_NAME = RPC_GET_USER_XP_PROGRESS;
@@ -1643,13 +2070,15 @@ var RPC_JOIN_PRIVATE_MATCH = "join_private_match";
 var RPC_GET_PRIVATE_MATCH_STATUS = "get_private_match_status";
 var RPC_PRESENCE_HEARTBEAT = "presence_heartbeat";
 var RPC_PRESENCE_COUNT = "presence_count";
+var RPC_GET_USERNAME_ONBOARDING_STATUS_NAME = RPC_GET_USERNAME_ONBOARDING_STATUS;
+var RPC_CLAIM_USERNAME_NAME = RPC_CLAIM_USERNAME;
 var MATCH_HANDLER = "authoritative_match";
 var PRIVATE_MATCH_CODE_COLLECTION = "private_match_codes";
 var PRIVATE_MATCH_CODE_MAX_GENERATION_ATTEMPTS = 12;
 var PRIVATE_MATCH_CODE_WRITE_ATTEMPTS = 4;
 var onlinePresenceByUser = /* @__PURE__ */ new Map();
 var asRecord2 = (value) => typeof value === "object" && value !== null ? value : null;
-var readStringField3 = (value, keys) => {
+var readStringField4 = (value, keys) => {
   const record = asRecord2(value);
   if (!record) {
     return null;
@@ -1711,14 +2140,14 @@ var decodeMessageData = (data, nk) => {
   }
   return String(data != null ? data : "");
 };
-var getPresenceUserId = (presence) => readStringField3(presence, ["userId", "user_id"]);
-var getSenderUserId = (sender) => readStringField3(sender, ["userId", "user_id"]);
+var getPresenceUserId = (presence) => readStringField4(presence, ["userId", "user_id"]);
+var getSenderUserId = (sender) => readStringField4(sender, ["userId", "user_id"]);
 var getMatchId = (ctx) => {
   var _a;
-  return (_a = readStringField3(ctx, ["matchId", "match_id"])) != null ? _a : "";
+  return (_a = readStringField4(ctx, ["matchId", "match_id"])) != null ? _a : "";
 };
 var getMessageOpCode = (message) => readNumberField2(message, ["opCode", "op_code"]);
-var getContextUserId = (ctx) => readStringField3(ctx, ["userId", "user_id"]);
+var getContextUserId = (ctx) => readStringField4(ctx, ["userId", "user_id"]);
 var resolveMatchModeId = (value) => isMatchModeId(value) ? value : "standard";
 var pruneOnlinePresence = (nowMs) => {
   onlinePresenceByUser.forEach((lastSeenMs, userId) => {
@@ -1797,13 +2226,13 @@ var normalizePrivateMatchCodeRecord = (value) => {
   if (!record) {
     return null;
   }
-  const code = normalizePrivateMatchCodeInput((_a = readStringField3(record, ["code"])) != null ? _a : "");
-  const matchId = readStringField3(record, ["matchId", "match_id"]);
+  const code = normalizePrivateMatchCodeInput((_a = readStringField4(record, ["code"])) != null ? _a : "");
+  const matchId = readStringField4(record, ["matchId", "match_id"]);
   const modeId = record.modeId;
-  const creatorUserId = readStringField3(record, ["creatorUserId", "creator_user_id"]);
-  const joinedUserId = readStringField3(record, ["joinedUserId", "joined_user_id"]);
-  const createdAt = readStringField3(record, ["createdAt", "created_at"]);
-  const updatedAt = readStringField3(record, ["updatedAt", "updated_at"]);
+  const creatorUserId = readStringField4(record, ["creatorUserId", "creator_user_id"]);
+  const joinedUserId = readStringField4(record, ["joinedUserId", "joined_user_id"]);
+  const createdAt = readStringField4(record, ["createdAt", "created_at"]);
+  const updatedAt = readStringField4(record, ["updatedAt", "updated_at"]);
   if (!isPrivateMatchCode(code) || !matchId || !isMatchModeId(modeId) || !creatorUserId || !createdAt || !updatedAt) {
     return null;
   }
@@ -1829,10 +2258,10 @@ var readPrivateMatchCodeObject = (nk, code) => {
     {
       collection: PRIVATE_MATCH_CODE_COLLECTION,
       key: normalizedCode,
-      userId: SYSTEM_USER_ID
+      userId: SYSTEM_USER_ID2
     }
   ]);
-  const object = findStorageObject(objects, PRIVATE_MATCH_CODE_COLLECTION, normalizedCode, SYSTEM_USER_ID);
+  const object = findStorageObject(objects, PRIVATE_MATCH_CODE_COLLECTION, normalizedCode, SYSTEM_USER_ID2);
   return {
     object,
     record: normalizePrivateMatchCodeRecord(object == null ? void 0 : object.value)
@@ -1976,6 +2405,8 @@ function InitModule(_ctx, logger, nk, initializer) {
   initializer.registerRpc(RPC_GET_PRIVATE_MATCH_STATUS, rpcGetPrivateMatchStatus);
   initializer.registerRpc(RPC_PRESENCE_HEARTBEAT, rpcPresenceHeartbeat);
   initializer.registerRpc(RPC_PRESENCE_COUNT, rpcPresenceCount);
+  initializer.registerRpc(RPC_GET_USERNAME_ONBOARDING_STATUS_NAME, rpcGetUsernameOnboardingStatus);
+  initializer.registerRpc(RPC_CLAIM_USERNAME_NAME, rpcClaimUsername);
   initializer.registerMatch(MATCH_HANDLER, {
     matchInit: matchInitHandler,
     matchJoinAttempt: matchJoinAttemptHandler,
@@ -2036,6 +2467,7 @@ function rpcMatchmakerAdd(ctx, _logger, nk, payload) {
   if (!ctx.userId || !ctx.sessionId) {
     throw new Error("Authentication required.");
   }
+  requireCompletedUsernameOnboarding(nk, ctx.userId);
   const data = payload ? JSON.parse(payload) : {};
   const minCount = Number.isInteger(data.minCount) ? data.minCount : 2;
   const maxCount = Number.isInteger(data.maxCount) ? data.maxCount : 2;
@@ -2057,6 +2489,7 @@ function rpcCreatePrivateMatch(ctx, _logger, nk, payload) {
   if (!ctx.userId) {
     throw new Error("Authentication required.");
   }
+  requireCompletedUsernameOnboarding(nk, ctx.userId);
   const data = parseRpcPayload(payload);
   const modeId = resolveMatchModeId(data.modeId);
   const privateCode = createAvailablePrivateMatchCode(nk);
@@ -2076,6 +2509,7 @@ function rpcJoinPrivateMatch(ctx, _logger, nk, payload) {
   if (!ctx.userId) {
     throw new Error("Authentication required.");
   }
+  requireCompletedUsernameOnboarding(nk, ctx.userId);
   const data = parseRpcPayload(payload);
   const requestedCode = typeof data.code === "string" ? data.code : "";
   const reservation = claimPrivateMatchCode(nk, requestedCode, ctx.userId);
@@ -2085,6 +2519,7 @@ function rpcGetPrivateMatchStatus(ctx, _logger, nk, payload) {
   if (!ctx.userId) {
     throw new Error("Authentication required.");
   }
+  requireCompletedUsernameOnboarding(nk, ctx.userId);
   const data = parseRpcPayload(payload);
   const requestedCode = typeof data.code === "string" ? data.code : "";
   const normalizedCode = normalizePrivateMatchCodeInput(requestedCode);
@@ -2154,6 +2589,15 @@ function matchJoinAttempt(_ctx, logger, nk, _dispatcher, _tick, state, presence)
   if (!userId) {
     logger.warn("Rejecting join attempt with missing user ID.");
     return { state, accept: false, rejectMessage: "Unable to identify player." };
+  }
+  try {
+    requireCompletedUsernameOnboarding(nk, userId);
+  } catch (error) {
+    return {
+      state,
+      accept: false,
+      rejectMessage: error instanceof Error ? error.message : "Choose a username before joining online matches."
+    };
   }
   if (state.privateMatch) {
     syncPrivateMatchReservation(nk, state);
@@ -2441,6 +2885,8 @@ function broadcastSnapshot(dispatcher, state, matchId) {
 var runtimeGlobals = {
   InitModule,
   rpcAuthLinkCustom,
+  rpcGetUsernameOnboardingStatus,
+  rpcClaimUsername,
   rpcMatchmakerAdd,
   rpcCreatePrivateMatch,
   rpcJoinPrivateMatch,

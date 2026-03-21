@@ -46,6 +46,13 @@ import {
   isPrivateMatchCode,
   normalizePrivateMatchCodeInput,
 } from "../../shared/privateMatchCode";
+import {
+  requireCompletedUsernameOnboarding,
+  rpcClaimUsername,
+  rpcGetUsernameOnboardingStatus,
+  RPC_CLAIM_USERNAME,
+  RPC_GET_USERNAME_ONBOARDING_STATUS,
+} from "./usernameOnboarding";
 
 declare namespace nkruntime {
   type Context = any;
@@ -124,6 +131,8 @@ const RPC_JOIN_PRIVATE_MATCH = "join_private_match";
 const RPC_GET_PRIVATE_MATCH_STATUS = "get_private_match_status";
 const RPC_PRESENCE_HEARTBEAT = "presence_heartbeat";
 const RPC_PRESENCE_COUNT = "presence_count";
+const RPC_GET_USERNAME_ONBOARDING_STATUS_NAME = RPC_GET_USERNAME_ONBOARDING_STATUS;
+const RPC_CLAIM_USERNAME_NAME = RPC_CLAIM_USERNAME;
 const MATCH_HANDLER = "authoritative_match";
 const PRIVATE_MATCH_CODE_COLLECTION = "private_match_codes";
 const PRIVATE_MATCH_CODE_MAX_GENERATION_ATTEMPTS = 12;
@@ -565,6 +574,8 @@ function InitModule(
   initializer.registerRpc(RPC_GET_PRIVATE_MATCH_STATUS, rpcGetPrivateMatchStatus);
   initializer.registerRpc(RPC_PRESENCE_HEARTBEAT, rpcPresenceHeartbeat);
   initializer.registerRpc(RPC_PRESENCE_COUNT, rpcPresenceCount);
+  initializer.registerRpc(RPC_GET_USERNAME_ONBOARDING_STATUS_NAME, rpcGetUsernameOnboardingStatus);
+  initializer.registerRpc(RPC_CLAIM_USERNAME_NAME, rpcClaimUsername);
   initializer.registerMatch(MATCH_HANDLER, {
     matchInit: matchInitHandler,
     matchJoinAttempt: matchJoinAttemptHandler,
@@ -657,6 +668,8 @@ function rpcMatchmakerAdd(
     throw new Error("Authentication required.");
   }
 
+  requireCompletedUsernameOnboarding(nk, ctx.userId);
+
   const data = payload ? JSON.parse(payload) : {};
   const minCount = Number.isInteger(data.minCount) ? data.minCount : 2;
   const maxCount = Number.isInteger(data.maxCount) ? data.maxCount : 2;
@@ -687,6 +700,8 @@ function rpcCreatePrivateMatch(
     throw new Error("Authentication required.");
   }
 
+  requireCompletedUsernameOnboarding(nk, ctx.userId);
+
   const data = parseRpcPayload(payload);
   const modeId = resolveMatchModeId(data.modeId);
   const privateCode = createAvailablePrivateMatchCode(nk);
@@ -714,6 +729,8 @@ function rpcJoinPrivateMatch(
     throw new Error("Authentication required.");
   }
 
+  requireCompletedUsernameOnboarding(nk, ctx.userId);
+
   const data = parseRpcPayload(payload);
   const requestedCode = typeof data.code === "string" ? data.code : "";
   const reservation = claimPrivateMatchCode(nk, requestedCode, ctx.userId);
@@ -730,6 +747,8 @@ function rpcGetPrivateMatchStatus(
   if (!ctx.userId) {
     throw new Error("Authentication required.");
   }
+
+  requireCompletedUsernameOnboarding(nk, ctx.userId);
 
   const data = parseRpcPayload(payload);
   const requestedCode = typeof data.code === "string" ? data.code : "";
@@ -833,6 +852,16 @@ function matchJoinAttempt(
   if (!userId) {
     logger.warn("Rejecting join attempt with missing user ID.");
     return { state, accept: false, rejectMessage: "Unable to identify player." };
+  }
+
+  try {
+    requireCompletedUsernameOnboarding(nk, userId);
+  } catch (error) {
+    return {
+      state,
+      accept: false,
+      rejectMessage: error instanceof Error ? error.message : "Choose a username before joining online matches.",
+    };
   }
 
   if (state.privateMatch) {
@@ -1261,6 +1290,8 @@ function broadcastSnapshot(dispatcher: nkruntime.MatchDispatcher, state: MatchSt
 type RuntimeGlobalBindings = {
   InitModule: typeof InitModule;
   rpcAuthLinkCustom: typeof rpcAuthLinkCustom;
+  rpcGetUsernameOnboardingStatus: typeof rpcGetUsernameOnboardingStatus;
+  rpcClaimUsername: typeof rpcClaimUsername;
   rpcMatchmakerAdd: typeof rpcMatchmakerAdd;
   rpcCreatePrivateMatch: typeof rpcCreatePrivateMatch;
   rpcJoinPrivateMatch: typeof rpcJoinPrivateMatch;
@@ -1280,6 +1311,8 @@ type RuntimeGlobalBindings = {
 const runtimeGlobals: RuntimeGlobalBindings = {
   InitModule,
   rpcAuthLinkCustom,
+  rpcGetUsernameOnboardingStatus,
+  rpcClaimUsername,
   rpcMatchmakerAdd,
   rpcCreatePrivateMatch,
   rpcJoinPrivateMatch,

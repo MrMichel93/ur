@@ -8,6 +8,18 @@ jest.mock('@/src/auth/useAuth', () => ({
   useAuth: (...args: unknown[]) => mockUseAuth(...args),
 }));
 
+jest.mock('expo-router', () => ({
+  Redirect: (() => {
+    const React = jest.requireActual('react');
+    const { Text } = jest.requireActual('react-native');
+    const MockRedirect = ({ href }: { href: string }) => <Text>{`REDIRECT:${href}`}</Text>;
+
+    MockRedirect.displayName = 'MockRedirect';
+
+    return MockRedirect;
+  })(),
+}));
+
 jest.mock('./LoginScreen', () => {
   const React = jest.requireActual('react');
   const { Text } = jest.requireActual('react-native');
@@ -37,6 +49,8 @@ describe('AuthGate', () => {
     mockUseAuth.mockReturnValue({
       user: null,
       isLoading: true,
+      isUsernameOnboardingLoading: false,
+      isUsernameOnboardingRequired: false,
     });
 
     const view = render(<AuthGate />);
@@ -48,6 +62,8 @@ describe('AuthGate', () => {
     mockUseAuth.mockReturnValue({
       user: null,
       isLoading: false,
+      isUsernameOnboardingLoading: false,
+      isUsernameOnboardingRequired: false,
     });
 
     const view = render(<AuthGate />);
@@ -57,12 +73,27 @@ describe('AuthGate', () => {
 
   it('shows the authenticated home when a user exists', () => {
     mockUseAuth.mockReturnValue({
-      user: { id: 'user-1' },
+      user: { id: 'user-1', provider: 'guest' },
       isLoading: false,
+      isUsernameOnboardingLoading: false,
+      isUsernameOnboardingRequired: false,
     });
 
     const view = render(<AuthGate />);
 
     expect(view.getByText('AUTH_HOME')).toBeTruthy();
+  });
+
+  it('redirects incomplete Google users to username onboarding', () => {
+    mockUseAuth.mockReturnValue({
+      user: { id: 'user-1', provider: 'google' },
+      isLoading: false,
+      isUsernameOnboardingLoading: false,
+      isUsernameOnboardingRequired: true,
+    });
+
+    const view = render(<AuthGate />);
+
+    expect(view.getByText('REDIRECT:/username-onboarding')).toBeTruthy();
   });
 });

@@ -30,6 +30,8 @@ describe('ProtectedRoute', () => {
     mockUseAuth.mockReturnValue({
       user: null,
       isLoading: true,
+      isUsernameOnboardingLoading: false,
+      isUsernameOnboardingRequired: false,
     });
 
     const view = render(
@@ -45,6 +47,8 @@ describe('ProtectedRoute', () => {
     mockUseAuth.mockReturnValue({
       user: null,
       isLoading: false,
+      isUsernameOnboardingLoading: false,
+      isUsernameOnboardingRequired: false,
     });
 
     const view = render(
@@ -58,8 +62,10 @@ describe('ProtectedRoute', () => {
 
   it('renders children for authenticated users', () => {
     mockUseAuth.mockReturnValue({
-      user: { id: 'user-1' },
+      user: { id: 'user-1', provider: 'guest' },
       isLoading: false,
+      isUsernameOnboardingLoading: false,
+      isUsernameOnboardingRequired: false,
     });
 
     const view = render(
@@ -69,5 +75,22 @@ describe('ProtectedRoute', () => {
     );
 
     expect(view.getByText('Protected Content')).toBeTruthy();
+  });
+
+  it('redirects incomplete Google users to the username onboarding screen', () => {
+    mockUseAuth.mockReturnValue({
+      user: { id: 'user-1', provider: 'google' },
+      isLoading: false,
+      isUsernameOnboardingLoading: false,
+      isUsernameOnboardingRequired: true,
+    });
+
+    const view = render(
+      <ProtectedRoute>
+        <Text>Protected Content</Text>
+      </ProtectedRoute>
+    );
+
+    expect(view.getByText('REDIRECT:/username-onboarding')).toBeTruthy();
   });
 });

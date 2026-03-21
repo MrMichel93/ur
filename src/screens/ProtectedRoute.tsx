@@ -6,9 +6,16 @@ import { urTheme, urTypography } from '@/constants/urTheme';
 import { useAuth } from '@/src/auth/useAuth';
 
 export const ProtectedRoute: React.FC<PropsWithChildren> = ({ children }) => {
-  const { user, isLoading } = useAuth();
+  const {
+    user,
+    isLoading,
+    isUsernameOnboardingLoading,
+    isUsernameOnboardingRequired,
+  } = useAuth();
 
-  if (isLoading) {
+  const isCheckingGoogleOnboarding = user?.provider === 'google' && isUsernameOnboardingLoading;
+
+  if (isLoading || isCheckingGoogleOnboarding) {
     return (
       <View style={styles.screen}>
         <ActivityIndicator color={urTheme.colors.parchment} size="large" />
@@ -19,6 +26,10 @@ export const ProtectedRoute: React.FC<PropsWithChildren> = ({ children }) => {
 
   if (!user) {
     return <Redirect href="/" />;
+  }
+
+  if (isUsernameOnboardingRequired) {
+    return <Redirect href="/username-onboarding" />;
   }
 
   return <>{children}</>;
