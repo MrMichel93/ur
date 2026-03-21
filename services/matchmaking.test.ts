@@ -1,3 +1,5 @@
+import { createPrivateMatch, getPrivateMatchStatus, joinPrivateMatch } from './matchmaking';
+
 const mockRpc = jest.fn();
 const mockEnsureAuthenticatedDevice = jest.fn();
 
@@ -12,8 +14,6 @@ jest.mock('./nakama', () => ({
     disconnectSocket: jest.fn(),
   },
 }));
-
-import { createPrivateMatch, getPrivateMatchStatus, joinPrivateMatch } from './matchmaking';
 
 describe('matchmaking private RPC parsing', () => {
   beforeEach(() => {
@@ -110,5 +110,15 @@ describe('matchmaking private RPC parsing', () => {
       code: 'ZXCV2345',
       hasGuestJoined: false,
     });
+  });
+
+  it('surfaces backend rpc messages instead of flattening them to a generic status code', async () => {
+    mockRpc.mockRejectedValue({
+      status: 500,
+      statusText: 'Internal Server Error',
+      message: 'Private game code not found.',
+    });
+
+    await expect(joinPrivateMatch('ABCD2345')).rejects.toThrow('Private game code not found.');
   });
 });

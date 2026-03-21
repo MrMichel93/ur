@@ -110,6 +110,7 @@ type RuntimeRecord = Record<string, unknown>;
 const TICK_RATE = 10;
 const MAX_PLAYERS = 2;
 const ONLINE_TTL_MS = 30_000;
+const SYSTEM_USER_ID = "00000000-0000-0000-0000-000000000000";
 
 const RPC_AUTH_LINK_CUSTOM = "auth_link_custom";
 const RPC_GET_PROGRESSION_NAME = RPC_GET_PROGRESSION;
@@ -355,9 +356,10 @@ const readPrivateMatchCodeObject = (
     {
       collection: PRIVATE_MATCH_CODE_COLLECTION,
       key: normalizedCode,
+      userId: SYSTEM_USER_ID,
     },
   ]) as RuntimeStorageObject[];
-  const object = findStorageObject(objects, PRIVATE_MATCH_CODE_COLLECTION, normalizedCode);
+  const object = findStorageObject(objects, PRIVATE_MATCH_CODE_COLLECTION, normalizedCode, SYSTEM_USER_ID);
 
   return {
     object,

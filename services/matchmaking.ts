@@ -55,6 +55,8 @@ const withTimeout = async <T>(promise: Promise<T>, timeoutMs: number, message: s
 };
 
 type StatusLikeError = {
+  message?: string;
+  error?: string;
   status?: number;
   statusText?: string;
   headers?: {
@@ -69,10 +71,20 @@ const normalizeMatchmakingError = (error: unknown): Error => {
 
   if (typeof error === "object" && error !== null) {
     const responseLike = error as StatusLikeError;
+    const message =
+      typeof responseLike.message === "string" && responseLike.message.trim().length > 0
+        ? responseLike.message.trim()
+        : typeof responseLike.error === "string" && responseLike.error.trim().length > 0
+          ? responseLike.error.trim()
+          : null;
     const status = responseLike.status;
     const statusText = responseLike.statusText;
     const authenticateHeader =
       responseLike.headers?.get?.("www-authenticate") ?? responseLike.headers?.get?.("WWW-Authenticate");
+
+    if (message) {
+      return new Error(message);
+    }
 
     if (status === 401 && authenticateHeader?.toLowerCase().includes("server key invalid")) {
       return new Error("Authentication failed: Nakama server key is invalid or mismatched.");

@@ -1630,6 +1630,7 @@ var generatePrivateMatchCode = (random = Math.random) => {
 var TICK_RATE = 10;
 var MAX_PLAYERS = 2;
 var ONLINE_TTL_MS = 3e4;
+var SYSTEM_USER_ID = "00000000-0000-0000-0000-000000000000";
 var RPC_AUTH_LINK_CUSTOM = "auth_link_custom";
 var RPC_GET_PROGRESSION_NAME = RPC_GET_PROGRESSION;
 var RPC_GET_USER_XP_PROGRESS_NAME = RPC_GET_USER_XP_PROGRESS;
@@ -1827,10 +1828,11 @@ var readPrivateMatchCodeObject = (nk, code) => {
   const objects = nk.storageRead([
     {
       collection: PRIVATE_MATCH_CODE_COLLECTION,
-      key: normalizedCode
+      key: normalizedCode,
+      userId: SYSTEM_USER_ID
     }
   ]);
-  const object = findStorageObject(objects, PRIVATE_MATCH_CODE_COLLECTION, normalizedCode);
+  const object = findStorageObject(objects, PRIVATE_MATCH_CODE_COLLECTION, normalizedCode, SYSTEM_USER_ID);
   return {
     object,
     record: normalizePrivateMatchCodeRecord(object == null ? void 0 : object.value)
