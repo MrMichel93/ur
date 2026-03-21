@@ -134,14 +134,6 @@ export const Piece: React.FC<PieceProps> = ({
     opacity: state === 'captured' ? interpolate(motion.value, [0, 1], [1, 0.35], Extrapolation.CLAMP) : 1,
   }));
 
-  const shadowStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(motion.value, [0, 1], [0.22, 0.14], Extrapolation.CLAMP),
-    transform: [
-      { scaleX: interpolate(motion.value, [0, 1], [1, 0.94], Extrapolation.CLAMP) },
-      { scaleY: interpolate(motion.value, [0, 1], [1, 0.88], Extrapolation.CLAMP) },
-    ],
-  }));
-
   const glowStyle = useAnimatedStyle(() => ({
     opacity: glowPulse.value * 0.9,
     transform: [{ scale: 0.95 + glowPulse.value * 0.2 }],
@@ -162,17 +154,6 @@ export const Piece: React.FC<PieceProps> = ({
         />
       )}
 
-      <Animated.View
-        style={[
-          styles.baseShadow,
-          shadowStyle,
-          {
-            width: sizePx * 0.62,
-            height: Math.max(4, sizePx * 0.16),
-            bottom: Math.max(1, sizePx * 0.06),
-          },
-        ]}
-      />
       <View style={[styles.artFrame, { width: sizePx, height: sizePx }]}>
         <Image
           source={resolvedSource}
@@ -205,11 +186,6 @@ const styles = StyleSheet.create({
     borderWidth: 1.6,
     borderColor: 'rgba(246, 212, 138, 0.9)',
     backgroundColor: 'rgba(240, 192, 64, 0.18)',
-  },
-  baseShadow: {
-    position: 'absolute',
-    borderRadius: urTheme.radii.pill,
-    backgroundColor: 'rgba(5, 8, 11, 0.26)',
   },
   artFrame: {
     alignItems: 'center',

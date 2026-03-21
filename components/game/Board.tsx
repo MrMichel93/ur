@@ -55,6 +55,13 @@ interface Point {
   y: number;
 }
 
+interface BoardTileLandingOffsetOptions {
+  cellSize: number;
+  col: number;
+  orientation?: BoardOrientation;
+  row: number;
+}
+
 interface BoardRenderLayout {
   cellSize: number;
   gridWidth: number;
@@ -103,6 +110,21 @@ const BOARD_PIECE_VISIBLE_TILE_COVERAGE = 0.75;
 const BOARD_PIECE_ART_SCALE = BOARD_PIECE_VISIBLE_TILE_COVERAGE / PIECE_ART_VISIBLE_COVERAGE;
 const BOARD_PIECE_ART_OFFSET_Y_RATIO = 0.02;
 const SHOW_BOARD_ALIGNMENT_DEBUG = false;
+const VERTICAL_BOARD_ROW_LANDING_OFFSET_Y_RATIOS = [
+  0.008,
+  0.014,
+  0.02,
+  0.026,
+  0.03,
+  0.018,
+  0.002,
+  -0.03,
+] as const;
+const VERTICAL_BOARD_COLUMN_LANDING_OFFSET_X_RATIOS = [
+  0.008,
+  0,
+  -0.008,
+] as const;
 
 interface BoardPiecePixelSizeOptions {
   viewportWidth: number;
@@ -137,6 +159,27 @@ export const getBoardPieceRenderMetrics = ({
 
 export const getBoardPiecePixelSize = (options: BoardPiecePixelSizeOptions): number =>
   getBoardPieceRenderMetrics(options).pixelSize;
+
+export const getBoardTileLandingOffset = ({
+  cellSize,
+  col,
+  orientation = 'horizontal',
+  row,
+}: BoardTileLandingOffsetOptions): Point => {
+  if (orientation !== 'vertical') {
+    return { x: 0, y: 0 };
+  }
+
+  const displayRow = col;
+  const displayCol = BOARD_ROWS - 1 - row;
+  const xRatio = VERTICAL_BOARD_COLUMN_LANDING_OFFSET_X_RATIOS[displayCol] ?? 0;
+  const yRatio = VERTICAL_BOARD_ROW_LANDING_OFFSET_Y_RATIOS[displayRow] ?? 0;
+
+  return {
+    x: Math.round(cellSize * xRatio * 100) / 100,
+    y: Math.round(cellSize * yRatio * 100) / 100,
+  };
+};
 
 // Gameplay geometry is canonical; adjust this object if the PNG asset changes.
 const BOARD_ART_ALIGNMENT: BoardArtAlignmentConfig = {
@@ -259,7 +302,7 @@ export const Board: React.FC<BoardProps> = ({
     [boardLayout.cellSize, spawnCueSize],
   );
 
-  const mapLogicalToDisplayCoord = (r: number, c: number): { row: number; col: number } => {
+  const mapLogicalToDisplayCoord = React.useCallback((r: number, c: number): { row: number; col: number } => {
     if (!isVertical) {
       return { row: r, col: c };
     }
@@ -268,7 +311,7 @@ export const Board: React.FC<BoardProps> = ({
       row: c,
       col: BOARD_ROWS - 1 - r,
     };
-  };
+  }, [isVertical]);
 
   const mapDisplayToLogicalCoord = (r: number, c: number): { row: number; col: number } => {
     if (!isVertical) {
@@ -290,26 +333,37 @@ export const Board: React.FC<BoardProps> = ({
     return coord.row === r && coord.col === c;
   };
 
-  const getCellCenter = (r: number, c: number): Point => ({
-    x: (() => {
-      const displayCoord = mapLogicalToDisplayCoord(r, c);
-      return (
+  const getCellCenter = React.useCallback((r: number, c: number): Point => {
+    const displayCoord = mapLogicalToDisplayCoord(r, c);
+    const landingOffset = getBoardTileLandingOffset({
+      cellSize: renderedTileSize,
+      col: c,
+      orientation,
+      row: r,
+    });
+
+    return {
+      x:
         boardLayout.innerGridLeft +
         displayCoord.col * (boardLayout.cellSize + GRID_GAP) +
-        boardLayout.cellSize / 2
-      );
-    })(),
-    y: (() => {
-      const displayCoord = mapLogicalToDisplayCoord(r, c);
-      return (
+        boardLayout.cellSize / 2 +
+        landingOffset.x,
+      y:
         boardLayout.innerGridTop +
         displayCoord.row * (boardLayout.cellSize + GRID_GAP) +
-        boardLayout.cellSize / 2
-      );
-    })(),
-  });
+        boardLayout.cellSize / 2 +
+        landingOffset.y,
+    };
+  }, [
+    boardLayout.cellSize,
+    boardLayout.innerGridLeft,
+    boardLayout.innerGridTop,
+    mapLogicalToDisplayCoord,
+    orientation,
+    renderedTileSize,
+  ]);
 
-  const projectLogicalOffset = (x: number, y: number): Point => {
+  const projectLogicalOffset = React.useCallback((x: number, y: number): Point => {
     if (!isVertical) {
       return { x, y };
     }
@@ -318,9 +372,9 @@ export const Board: React.FC<BoardProps> = ({
       x: -y,
       y: x,
     };
-  };
+  }, [isVertical]);
 
-  const coordForPathIndex = (color: 'light' | 'dark', index: number): Point | null => {
+  const coordForPathIndex = React.useCallback((color: 'light' | 'dark', index: number): Point | null => {
     const path = getPathForColor(color);
 
     if (index === -1) {
@@ -344,7 +398,14 @@ export const Board: React.FC<BoardProps> = ({
     const coord = path[index];
     if (!coord) return null;
     return getCellCenter(coord.row, coord.col);
-  };
+  }, [
+    boardLayout.cellSize,
+    getCellCenter,
+    getPathForColor,
+    pathLength,
+    projectLogicalOffset,
+    spawnCueOffsetDistance,
+  ]);
 
   const getPieceAt = (r: number, c: number): { id: string; color: 'light' | 'dark' } | undefined => {
     const lightPiece = gameState.light.pieces.find(
@@ -867,6 +928,12 @@ export const Board: React.FC<BoardProps> = ({
 
         const isValidTarget = isPreviewDestination;
         const isInteractable = isInteractiveTurn && (isDestination || !!moveFromTile || isFocusedPiece);
+        const pieceLandingOffset = getBoardTileLandingOffset({
+          cellSize: renderedTileSize,
+          col: c,
+          orientation,
+          row: r,
+        });
 
         rowCells.push(
           <View
@@ -885,6 +952,8 @@ export const Board: React.FC<BoardProps> = ({
               col={c}
               cellSize={renderedTileSize}
               piecePixelSize={boardPiecePixelSize}
+              pieceOffsetX={pieceLandingOffset.x}
+              pieceOffsetY={pieceLandingOffset.y}
               pieceArtScale={boardPieceArtScale}
               pieceArtOffsetY={boardPieceArtOffsetY}
               piece={piece}

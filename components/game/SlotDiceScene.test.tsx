@@ -175,6 +175,35 @@ describe('SlotDiceScene', () => {
     expect(stripStyle.right).toBe(0);
   });
 
+  it('keeps the reel window transparent while enlarging the die art and border treatment', () => {
+    render(
+      <SlotDiceScene
+        playbackId={22}
+        durationMs={720}
+        rollValue={null}
+        variant="start"
+      />,
+    );
+
+    const reelStyle = StyleSheet.flatten(screen.getByTestId('slot-die-0').props.style) as {
+      backgroundColor?: string;
+      borderWidth?: number;
+      height: number;
+      width: number;
+    };
+    const imageStyle = StyleSheet.flatten(screen.getByTestId('slot-die-image-0').props.style) as {
+      height: number;
+      width: number;
+    };
+
+    expect(reelStyle.backgroundColor).toBe('transparent');
+    expect(reelStyle.borderWidth).toBe(3.2);
+    expect(reelStyle.height).toBeGreaterThan(56);
+    expect(reelStyle.width).toBeGreaterThan(56);
+    expect(imageStyle.height).toBe(72);
+    expect(imageStyle.width).toBe(72);
+  });
+
   it('keeps the strip render path when an animated roll transitions into settled state', () => {
     const view = render(
       <SlotDiceScene

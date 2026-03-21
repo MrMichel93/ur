@@ -382,6 +382,7 @@ const SlotReel: React.FC<SlotReelProps> = ({
             source={DICE_UNMARKED}
             style={[styles.dieImage, { height: imageSize, width: imageSize }]}
             resizeMode="contain"
+            testID={`slot-die-image-${index}`}
           />
         </View>
       ) : (
@@ -405,6 +406,7 @@ const SlotReel: React.FC<SlotReelProps> = ({
                 source={faceMarked ? DICE_MARKED : DICE_UNMARKED}
                 style={[styles.dieImage, { height: imageSize, width: imageSize }]}
                 resizeMode="contain"
+                testID={`slot-die-strip-image-${index}-${faceIndex}`}
               />
             </View>
           ))}
@@ -550,21 +552,22 @@ export const SlotDiceScene: React.FC<SlotDiceSceneProps> = ({
   }, []);
 
   const baseWidth = (presentation === 'stage' ? 274 : 246) * size;
-  const baseHeight = (presentation === 'stage' ? 126 : 112) * size;
+  const baseHeight = (presentation === 'stage' ? 138 : 122) * size;
   const availableWidth = layout.width > 0 ? layout.width : baseWidth;
   const availableHeight = layout.height > 0 ? layout.height : baseHeight;
-  const rowHorizontalPadding = Math.max(2, Math.round(availableWidth * 0.008));
-  const rowVerticalPadding = Math.max(2, Math.round(availableHeight * 0.03));
-  const reelGap = Math.max(6, Math.round(availableWidth * 0.02));
+  const rowHorizontalPadding = Math.max(0, Math.round(availableWidth * 0.004));
+  const rowVerticalPadding = Math.max(2, Math.round(availableHeight * 0.02));
+  const reelGap = Math.max(2, Math.round(availableWidth * 0.012));
   const boxSize = Math.max(
-    38,
+    40,
     Math.min(
       (availableWidth - rowHorizontalPadding * 2 - reelGap * (SLOT_DICE_COUNT - 1)) /
         SLOT_DICE_COUNT,
       availableHeight - rowVerticalPadding * 2,
     ),
   );
-  const imageSize = Math.round(boxSize * 1.08);
+  const defaultImageSize = presentation === 'stage' ? 80 : 72;
+  const imageSize = Math.max(38, Math.min(defaultImageSize, Math.round(boxSize * 1.22)));
   const rowWidth = Math.min(
     availableWidth,
     boxSize * SLOT_DICE_COUNT + reelGap * (SLOT_DICE_COUNT - 1) + rowHorizontalPadding * 2,
@@ -623,19 +626,19 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1.6,
+    borderWidth: 3.2,
   },
   reelWindowEmbedded: {
     borderColor: '#86562A',
-    backgroundColor: '#EFE3D0',
+    backgroundColor: 'transparent',
   },
   reelWindowStage: {
     borderColor: '#75481F',
-    backgroundColor: '#F5EAD7',
+    backgroundColor: 'transparent',
   },
   reelInset: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(126, 79, 32, 0.06)',
+    backgroundColor: 'transparent',
   },
   reelFace: {
     ...StyleSheet.absoluteFillObject,
@@ -659,7 +662,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: '20%',
-    backgroundColor: 'rgba(245, 234, 215, 0.18)',
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
   },
   reelMaskBottom: {
     position: 'absolute',
@@ -667,7 +670,7 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     height: '20%',
-    backgroundColor: 'rgba(239, 227, 208, 0.22)',
+    backgroundColor: 'rgba(29, 18, 9, 0.08)',
   },
   reelHighlight: {
     position: 'absolute',
@@ -675,12 +678,12 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: '34%',
-    backgroundColor: 'rgba(255, 255, 255, 0.28)',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
   },
   reelBorder: {
     ...StyleSheet.absoluteFillObject,
-    borderWidth: 1,
-    borderColor: 'rgba(84, 51, 24, 0.16)',
+    borderWidth: 2,
+    borderColor: 'rgba(84, 51, 24, 0.26)',
   },
   dieImage: {
     alignSelf: 'center',

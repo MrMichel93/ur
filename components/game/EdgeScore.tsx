@@ -235,11 +235,10 @@ const styles = StyleSheet.create({
   divider: {
     ...urTypography.title,
     color: 'rgba(242, 232, 213, 0.72)',
-    fontSize: 18,
-    lineHeight: 22,
+    fontSize: 30,
+    lineHeight: 34,
     fontWeight: '700',
     fontVariant: ['tabular-nums'],
-    marginBottom: 4,
     ...textShadow({
       color: '#040302',
       offset: { width: 0, height: 1 },
@@ -247,18 +246,16 @@ const styles = StyleSheet.create({
     }),
   },
   mobileDivider: {
-    fontSize: 12,
-    lineHeight: 14,
-    marginBottom: 2,
+    fontSize: 18,
+    lineHeight: 20,
   },
   maxScore: {
     ...urTypography.title,
     color: '#F7E9CD',
-    fontSize: 18,
-    lineHeight: 22,
+    fontSize: 30,
+    lineHeight: 34,
     fontWeight: '700',
     fontVariant: ['tabular-nums'],
-    marginBottom: 4,
     ...textShadow({
       color: '#040302',
       offset: { width: 0, height: 1 },
@@ -266,9 +263,8 @@ const styles = StyleSheet.create({
     }),
   },
   mobileMaxScore: {
-    fontSize: 12,
-    lineHeight: 14,
-    marginBottom: 2,
+    fontSize: 18,
+    lineHeight: 20,
   },
   rightText: {
     textAlign: 'right',

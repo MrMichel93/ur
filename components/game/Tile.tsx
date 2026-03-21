@@ -21,6 +21,8 @@ interface TileProps {
   col: number;
   cellSize?: number;
   piecePixelSize?: number;
+  pieceOffsetX?: number;
+  pieceOffsetY?: number;
   pieceArtScale?: number;
   pieceArtOffsetX?: number;
   pieceArtOffsetY?: number;
@@ -135,6 +137,8 @@ export const Tile: React.FC<TileProps> = ({
   col,
   cellSize = 44,
   piecePixelSize,
+  pieceOffsetX = 0,
+  pieceOffsetY = 0,
   pieceArtScale = 1,
   pieceArtOffsetX = 0,
   pieceArtOffsetY = 0,
@@ -347,7 +351,17 @@ export const Tile: React.FC<TileProps> = ({
       {rosette && <Animated.View style={[styles.rosetteBurst, rosetteBurstStyle]} />}
 
       {piece && (
-        <View style={styles.pieceWrap}>
+        <View
+          style={[
+            styles.pieceWrap,
+            {
+              transform: [
+                { translateX: pieceOffsetX },
+                { translateY: pieceOffsetY },
+              ],
+            },
+          ]}
+        >
           <Piece
             color={piece.color}
             pixelSize={piecePixelSize}

@@ -16,6 +16,16 @@ const TRAY_ASSETS = {
   light: require('../../assets/trays/tray_light.png'),
   dark: require('../../assets/trays/tray_dark.png'),
 };
+const TRAY_ART_SOURCE_SIZE = {
+  width: 640,
+  height: 427,
+} as const;
+const HORIZONTAL_TRAY_INTERIOR_BOUNDS = {
+  startX: 0.13,
+  endX: 0.87,
+  startY: 0.28,
+  endY: 0.67,
+} as const;
 
 // Second +30% size pass requested by design review.
 const RAIL_SIZE_SCALE = 1.69;
@@ -23,7 +33,7 @@ const TRAY_SIZE_BOOST = 1.3;
 const TRAY_SIZE_REDUCTION = 0.85;
 const TRAY_SIZE_REGAIN = 1.15;
 const DEFAULT_RESERVE_PIECE_SIZE = 34;
-const RESERVE_PIECE_SIZE_BOOST = 1.15;
+const RESERVE_PIECE_SIZE_BOOST = 1;
 const MOBILE_VERTICAL_TRAY_ART_SCALE = 2;
 const MOBILE_VERTICAL_RESERVE_PIECE_FIT = 0.74;
 
@@ -35,7 +45,6 @@ const TRAY_ART_FIT = {
   offsetY: 0,
 };
 
-const RESERVE_STACK_OFFSET_Y = Math.round(2 * RAIL_SIZE_SCALE);
 const RAIL_MIN_HEIGHT = Math.round(
   76 * RAIL_SIZE_SCALE * TRAY_SIZE_BOOST * TRAY_SIZE_REDUCTION * TRAY_SIZE_REGAIN,
 );
@@ -72,6 +81,11 @@ export interface PieceRailFrameMeasurement {
   height: number;
 }
 
+interface RailSize {
+  width: number;
+  height: number;
+}
+
 export const PieceRail: React.FC<PieceRailProps> = ({
   color,
   tokenVariant,
@@ -87,6 +101,7 @@ export const PieceRail: React.FC<PieceRailProps> = ({
   const { width, height } = useWindowDimensions();
   const glow = useSharedValue(active ? 0.5 : 0);
   const [railMainAxisSize, setRailMainAxisSize] = useState(0);
+  const [railSize, setRailSize] = useState<RailSize>({ width: 0, height: 0 });
   const isMobile = width < 760;
   const isMobileWeb = Platform.OS === 'web' && isMobile;
   const isVertical = orientation === 'vertical';
@@ -96,7 +111,6 @@ export const PieceRail: React.FC<PieceRailProps> = ({
   const railScale = isMobile ? MOBILE_RAIL_SCALE : isTabletPortrait ? 0.9 : 1;
   const railMinHeight = Math.round(RAIL_MIN_HEIGHT * railScale);
   const railHorizontalPadding = Math.round(RAIL_HORIZONTAL_PADDING * railScale);
-  const reserveStackOffsetY = Math.round(RESERVE_STACK_OFFSET_Y * railScale);
   const trayArtScale =
     TRAY_ART_FIT.scale *
     (isVertical ? (isMobile ? 0.92 : 1) : isMobile ? 0.78 : isTabletPortrait ? 0.92 : 1) *
@@ -134,19 +148,83 @@ export const PieceRail: React.FC<PieceRailProps> = ({
       (isCompactVerticalRail ? MOBILE_VERTICAL_RESERVE_PIECE_FIT : isMobileWeb ? 0.85 : 1),
     ),
   );
+  const reserveStackOffsetY = isVertical ? 0 : -Math.max(1, Math.round(reservePieceSize * 0.035));
+  const horizontalEdgeInset = Math.max(6, Math.round(reservePieceSize * 0.08));
+  const horizontalBottomInset = Math.max(2, Math.round(reservePieceSize * 0.06));
   const slotRefs = useRef<(View | null)[]>([]);
   const railRef = useRef<View | null>(null);
   const reportedSlotsKeyRef = useRef<string>('');
   const reportedRailFrameKeyRef = useRef<string>('');
+  const traySlotCount = Math.max(1, totalCount);
+  const visibleSlotIndices = useMemo(
+    () =>
+      color === 'dark' && !isVertical
+        ? Array.from({ length: shownCount }, (_, index) => traySlotCount - shownCount + index)
+        : Array.from({ length: shownCount }, (_, index) => index),
+    [color, isVertical, shownCount, traySlotCount],
+  );
+
+  const horizontalTrayInteriorBounds = useMemo(() => {
+    if (isVertical || railSize.width <= 0 || railSize.height <= 0) {
+      return null;
+    }
+
+    const artAspectRatio = TRAY_ART_SOURCE_SIZE.width / TRAY_ART_SOURCE_SIZE.height;
+    const containerAspectRatio = railSize.width / railSize.height;
+    const containWidth =
+      containerAspectRatio > artAspectRatio ? railSize.height * artAspectRatio : railSize.width;
+    const containHeight =
+      containerAspectRatio > artAspectRatio ? railSize.height : railSize.width / artAspectRatio;
+    const artWidth = containWidth * trayArtScale;
+    const artHeight = containHeight * trayArtScale;
+    const artLeft = (railSize.width - artWidth) / 2 + TRAY_ART_FIT.offsetX;
+    const artTop = (railSize.height - artHeight) / 2 + TRAY_ART_FIT.offsetY;
+    const left = Math.round(artLeft + artWidth * HORIZONTAL_TRAY_INTERIOR_BOUNDS.startX);
+    const right = Math.round(artLeft + artWidth * HORIZONTAL_TRAY_INTERIOR_BOUNDS.endX);
+    const top = Math.round(artTop + artHeight * HORIZONTAL_TRAY_INTERIOR_BOUNDS.startY);
+    const bottom = Math.round(artTop + artHeight * HORIZONTAL_TRAY_INTERIOR_BOUNDS.endY);
+
+    return {
+      left,
+      top,
+      width: Math.max(reservePieceSize, right - left),
+      height: Math.max(reservePieceSize, bottom - top),
+    };
+  }, [isVertical, railSize.height, railSize.width, reservePieceSize, trayArtScale]);
+  const stackMainAxisSize = isVertical
+    ? railMainAxisSize
+    : horizontalTrayInteriorBounds?.width ?? railMainAxisSize;
 
   const resolveStackLayout = useCallback((slotCount: number) => {
-    const minOverlapRatio = isMobile ? 0.5 : isLargeWebHorizontalRail ? 0.25 : 0.22;
-    const preferredOverlapRatio = isMobile ? 0.58 : isLargeWebHorizontalRail ? 0.25 : 0.3;
+    const minOverlapRatio = isVertical
+      ? isMobile
+        ? 0.5
+        : isLargeWebHorizontalRail
+          ? 0.25
+          : 0.22
+      : isMobile
+        ? 0.04
+        : isLargeWebHorizontalRail
+          ? 0.02
+          : 0.03;
+    const preferredOverlapRatio = isVertical
+      ? isMobile
+        ? 0.58
+        : isLargeWebHorizontalRail
+          ? 0.25
+          : 0.3
+      : isMobile
+        ? 0.08
+        : isLargeWebHorizontalRail
+          ? 0.03
+          : 0.05;
     const minOverlap = Math.max(1, Math.round(reservePieceSize * minOverlapRatio));
     const preferredOverlap = Math.max(minOverlap, Math.round(reservePieceSize * preferredOverlapRatio));
     const preferredInset = isCompactVerticalRail
       ? Math.max(14, Math.round(reservePieceSize * 0.42))
-      : Math.max(10, Math.round(reservePieceSize * 0.28));
+      : isVertical
+        ? Math.max(10, Math.round(reservePieceSize * 0.28))
+        : horizontalEdgeInset;
 
     if (slotCount <= 0) {
       return {
@@ -155,7 +233,7 @@ export const PieceRail: React.FC<PieceRailProps> = ({
       };
     }
 
-    if (railMainAxisSize <= 0) {
+    if (stackMainAxisSize <= 0) {
       return {
         overlap: preferredOverlap,
         inset: preferredInset,
@@ -164,9 +242,9 @@ export const PieceRail: React.FC<PieceRailProps> = ({
 
     const preferredStep = reservePieceSize - preferredOverlap;
     const preferredSpan = reservePieceSize + preferredStep * Math.max(0, slotCount - 1);
-    const maxInset = Math.max(0, Math.floor((railMainAxisSize - preferredSpan) / 2));
+    const maxInset = Math.max(0, Math.floor((stackMainAxisSize - preferredSpan) / 2));
     const inset = Math.min(preferredInset, maxInset);
-    const usableSize = Math.max(0, railMainAxisSize - inset * 2);
+    const usableSize = Math.max(0, stackMainAxisSize - inset * 2);
 
     let overlap = preferredOverlap;
     if (slotCount > 1) {
@@ -180,9 +258,16 @@ export const PieceRail: React.FC<PieceRailProps> = ({
       overlap,
       inset,
     };
-  }, [isCompactVerticalRail, isLargeWebHorizontalRail, isMobile, railMainAxisSize, reservePieceSize]);
-  const pieceLayout = useMemo(() => resolveStackLayout(shownCount), [resolveStackLayout, shownCount]);
-  const traySlotCount = Math.max(1, totalCount);
+  }, [
+    horizontalEdgeInset,
+    isCompactVerticalRail,
+    isLargeWebHorizontalRail,
+    isMobile,
+    isVertical,
+    reservePieceSize,
+    stackMainAxisSize,
+  ]);
+  const pieceLayout = useMemo(() => resolveStackLayout(traySlotCount), [resolveStackLayout, traySlotCount]);
   const trayArtLayout = useMemo(() => resolveStackLayout(traySlotCount), [resolveStackLayout, traySlotCount]);
   const trayArtSpan = useMemo(() => {
     if (traySlotCount <= 0) {
@@ -213,19 +298,23 @@ export const PieceRail: React.FC<PieceRailProps> = ({
     }
 
     requestAnimationFrame(() => {
-      const measuredSlots: (ReserveSlotMeasurement | null)[] = Array.from({ length: shownCount }, () => null);
-      let pendingMeasurements = shownCount;
+      const measuredSlots: (ReserveSlotMeasurement | null)[] = Array.from(
+        { length: visibleSlotIndices.length },
+        () => null,
+      );
+      let pendingMeasurements = visibleSlotIndices.length;
 
-      slotRefs.current.slice(0, shownCount).forEach((slotRef, index) => {
+      visibleSlotIndices.forEach((slotIndex, renderIndex) => {
+        const slotRef = slotRefs.current[renderIndex];
         if (!slotRef) {
           pendingMeasurements -= 1;
           return;
         }
 
         slotRef.measureInWindow((x, y, width, height) => {
-          measuredSlots[index] = {
+          measuredSlots[renderIndex] = {
             color,
-            index,
+            index: slotIndex,
             x,
             y,
             size: Math.min(width, height),
@@ -245,7 +334,7 @@ export const PieceRail: React.FC<PieceRailProps> = ({
         });
       });
     });
-  }, [color, onReserveSlotsLayout, shownCount]);
+  }, [color, onReserveSlotsLayout, shownCount, visibleSlotIndices]);
 
   const reportRailFrame = useCallback(() => {
     if (!onRailFrameLayout || !railRef.current) {
@@ -272,7 +361,18 @@ export const PieceRail: React.FC<PieceRailProps> = ({
 
   useEffect(() => {
     reportReserveSlots();
-  }, [reportReserveSlots, reservePieceSize, pieceLayout.inset, pieceLayout.overlap, reserveStackOffsetY, railMainAxisSize]);
+  }, [
+    horizontalTrayInteriorBounds?.height,
+    horizontalTrayInteriorBounds?.left,
+    horizontalTrayInteriorBounds?.top,
+    horizontalTrayInteriorBounds?.width,
+    pieceLayout.inset,
+    pieceLayout.overlap,
+    railMainAxisSize,
+    reportReserveSlots,
+    reservePieceSize,
+    reserveStackOffsetY,
+  ]);
 
   useEffect(() => {
     reportRailFrame();
@@ -283,28 +383,41 @@ export const PieceRail: React.FC<PieceRailProps> = ({
       <View
         ref={railRef}
         collapsable={false}
+        testID="piece-rail-root"
         style={[
           styles.rail,
           isVertical && styles.railVertical,
           {
             minHeight: railMinHeight,
             paddingHorizontal: isVertical ? 0 : railHorizontalPadding,
-            paddingVertical: isVertical ? railHorizontalPadding : 0,
+            paddingTop: isVertical ? railHorizontalPadding : 0,
+            paddingBottom: isVertical ? railHorizontalPadding : horizontalBottomInset,
+            justifyContent: isVertical ? 'center' : 'flex-end',
           },
         ]}
         onLayout={(event) => {
-          const nextMainAxisSize = Math.round(
-            isVertical ? event.nativeEvent.layout.height : event.nativeEvent.layout.width,
-          );
+          const {
+            height: layoutHeight,
+            width: layoutWidth,
+          } = event.nativeEvent.layout;
+          const nextMainAxisSize = Math.round(isVertical ? layoutHeight : layoutWidth);
           setRailMainAxisSize((prev) => (prev === nextMainAxisSize ? prev : nextMainAxisSize));
+          setRailSize((prev) =>
+            prev.width === layoutWidth && prev.height === layoutHeight
+              ? prev
+              : {
+                width: layoutWidth,
+                height: layoutHeight,
+              },
+          );
           reportReserveSlots();
           reportRailFrame();
         }}
       >
         {/*
           Reserve tray artwork is rendered as a background PNG.
-          Piece positions and stacking geometry are determined by gameplay layout,
-          not by the tray image.
+          Horizontal reserve stacks align to a safe lane derived from the tray art
+          so pieces stay inside the recessed tray well instead of drifting onto the rim.
         */}
         <View
           pointerEvents="none"
@@ -334,31 +447,50 @@ export const PieceRail: React.FC<PieceRailProps> = ({
         <Animated.View style={[styles.activeGlow, glowStyle]} />
 
         <View
+          testID="piece-rail-stack"
           style={[
             styles.pieceStack,
             isVertical && styles.pieceStackVertical,
-            {
-              paddingHorizontal: isVertical ? 0 : pieceLayout.inset,
-              paddingVertical: isVertical ? pieceLayout.inset : 0,
-              transform: isVertical ? undefined : [{ translateY: reserveStackOffsetY }],
-            },
+            isVertical
+              ? {
+                paddingVertical: pieceLayout.inset,
+                justifyContent: 'flex-start',
+              }
+              : horizontalTrayInteriorBounds
+                ? {
+                  position: 'absolute',
+                  left: horizontalTrayInteriorBounds.left,
+                  top: horizontalTrayInteriorBounds.top,
+                  width: horizontalTrayInteriorBounds.width,
+                  height: horizontalTrayInteriorBounds.height,
+                  paddingLeft: color === 'light' ? pieceLayout.inset : 0,
+                  paddingRight: color === 'dark' ? pieceLayout.inset : 0,
+                  justifyContent: color === 'dark' ? 'flex-end' : 'flex-start',
+                }
+                : {
+                  paddingLeft: color === 'light' ? pieceLayout.inset : 0,
+                  paddingRight: color === 'dark' ? pieceLayout.inset : 0,
+                  justifyContent: color === 'dark' ? 'flex-end' : 'flex-start',
+                  transform: [{ translateY: reserveStackOffsetY }],
+                },
           ]}
         >
-          {Array.from({ length: shownCount }).map((_, index) => (
+          {visibleSlotIndices.map((slotIndex, renderIndex) => (
             <View
-              key={`piece-${index}`}
+              key={`piece-${slotIndex}`}
               ref={(node) => {
-                slotRefs.current[index] = node;
+                slotRefs.current[renderIndex] = node;
               }}
+              testID={`piece-rail-slot-${slotIndex}`}
               style={[
                 styles.stackPiece,
                 isVertical && styles.stackPieceVertical,
                 {
-                  marginLeft: isVertical || index === 0 ? 0 : -pieceLayout.overlap,
-                  marginTop: isVertical && index > 0 ? -pieceLayout.overlap : 0,
+                  marginLeft: isVertical || renderIndex === 0 ? 0 : -pieceLayout.overlap,
+                  marginTop: isVertical && renderIndex > 0 ? -pieceLayout.overlap : 0,
                   width: reservePieceSize,
                   height: reservePieceSize,
-                  zIndex: index + 1,
+                  zIndex: renderIndex + 1,
                 },
               ]}
             >
@@ -411,7 +543,7 @@ const styles = StyleSheet.create({
   pieceStack: {
     flexDirection: 'row',
     alignSelf: 'stretch',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     alignItems: 'center',
     zIndex: 2,
   },

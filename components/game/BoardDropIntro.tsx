@@ -28,7 +28,12 @@ interface BoardDropFrame {
 
 interface BoardDropIntroProps {
   targetFrame: BoardDropFrame;
-  boardSource: ImageSourcePropType;
+  boardContent?: React.ReactNode;
+  boardContentOffset?: {
+    x: number;
+    y: number;
+  };
+  boardSource?: ImageSourcePropType;
   onImpactLead?: () => void;
   onImpact?: () => void;
   onComplete: () => void;
@@ -326,6 +331,8 @@ const DustPuff: React.FC<{
 
 export const BoardDropIntro: React.FC<BoardDropIntroProps> = ({
   targetFrame,
+  boardContent,
+  boardContentOffset,
   boardSource,
   onImpactLead,
   onImpact,
@@ -583,11 +590,30 @@ export const BoardDropIntro: React.FC<BoardDropIntroProps> = ({
           boardStyle,
         ]}
       >
-        <Image
-          source={boardSource}
-          resizeMode="stretch"
-          style={styles.boardImage}
-        />
+        {boardContent ? (
+          <View pointerEvents="none" style={styles.boardContentViewport}>
+            <View
+              pointerEvents="none"
+              style={[
+                styles.boardContentOffset,
+                {
+                  transform: [
+                    { translateX: -(boardContentOffset?.x ?? 0) },
+                    { translateY: -(boardContentOffset?.y ?? 0) },
+                  ],
+                },
+              ]}
+            >
+              {boardContent}
+            </View>
+          </View>
+        ) : boardSource ? (
+          <Image
+            source={boardSource}
+            resizeMode="stretch"
+            style={styles.boardImage}
+          />
+        ) : null}
       </Animated.View>
     </View>
   );
@@ -600,6 +626,16 @@ const styles = StyleSheet.create({
   },
   boardWrap: {
     position: "absolute",
+  },
+  boardContentViewport: {
+    width: "100%",
+    height: "100%",
+    overflow: "visible",
+  },
+  boardContentOffset: {
+    position: "absolute",
+    left: 0,
+    top: 0,
   },
   boardImage: {
     width: "100%",

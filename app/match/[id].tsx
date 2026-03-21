@@ -776,6 +776,31 @@ export function GameRoom() {
     [syncBoardTargetFrame],
   );
 
+  const captureBoardDropTargetFrame = React.useCallback(() => {
+    const boardNode = boardMeasureRef.current;
+
+    if (!boardNode) {
+      return;
+    }
+
+    requestAnimationFrame(() => {
+      boardNode.measureInWindow((x, y, width, height) => {
+        const nextFrame = { x, y, width, height };
+
+        setBoardDropTargetFrame((previous) =>
+          previous &&
+          previous.x === nextFrame.x &&
+          previous.y === nextFrame.y &&
+          previous.width === nextFrame.width &&
+          previous.height === nextFrame.height
+            ? previous
+            : nextFrame,
+        );
+        setShowBoardDropIntro(true);
+      });
+    });
+  }, []);
+
   const handleLightTrayFrameLayout = React.useCallback((nextFrame: PieceRailFrameMeasurement) => {
     setLightTrayFrame((previous) =>
       previous &&
@@ -2195,8 +2220,7 @@ export function GameRoom() {
 
     const timer = setTimeout(
       () => {
-        setBoardDropTargetFrame({ ...boardTargetFrame });
-        setShowBoardDropIntro(true);
+        captureBoardDropTargetFrame();
       },
       isMobileLayout ? 120 : 0,
     );
@@ -2207,6 +2231,7 @@ export function GameRoom() {
   }, [
     boardDropTargetFrame,
     boardTargetFrame,
+    captureBoardDropTargetFrame,
     hasPlayedBoardDropIntro,
     isMobileLayout,
     isBoardTargetFrameReady,
@@ -2279,6 +2304,18 @@ export function GameRoom() {
         />
       </View>
     </View>
+  );
+
+  const boardIntroContent = (
+    <Board
+      autoMoveHintEnabled={moveHintEnabled}
+      showRailHints
+      highlightMode="theatrical"
+      validMovesOverride={displayedValidMoves}
+      boardScale={boardScale}
+      orientation="vertical"
+      allowInteraction={false}
+    />
   );
 
   return (
@@ -2998,6 +3035,7 @@ export function GameRoom() {
       {showBoardDropIntro && boardDropTargetFrame && (
         <BoardDropIntro
           targetFrame={boardDropTargetFrame}
+          boardContent={boardIntroContent}
           boardSource={BOARD_IMAGE_SOURCE}
           onImpactLead={() => {
             void gameAudio.play('boardImpact');

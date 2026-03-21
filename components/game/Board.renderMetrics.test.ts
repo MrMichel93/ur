@@ -1,4 +1,4 @@
-import { getBoardPieceRenderMetrics } from './Board';
+import { getBoardPieceRenderMetrics, getBoardTileLandingOffset } from './Board';
 import { PIECE_ART_VISIBLE_COVERAGE } from './Piece';
 
 describe('getBoardPieceRenderMetrics', () => {
@@ -18,4 +18,31 @@ describe('getBoardPieceRenderMetrics', () => {
       expect(metrics.artOffsetY).toBeGreaterThan(0);
     },
   );
+
+  it('applies row-aware landing offsets for the vertical board', () => {
+    const offsets = Array.from({ length: 8 }, (_, col) =>
+      getBoardTileLandingOffset({
+        cellSize: 100,
+        col,
+        orientation: 'vertical',
+        row: 1,
+      }).y,
+    );
+
+    expect(new Set(offsets).size).toBeGreaterThan(4);
+    expect(offsets[0]).toBeLessThan(offsets[3]);
+    expect(offsets[4]).toBeGreaterThan(offsets[7]);
+    expect(offsets[7]).toBeLessThan(0);
+  });
+
+  it('keeps horizontal boards on the legacy centered landing point', () => {
+    expect(
+      getBoardTileLandingOffset({
+        cellSize: 100,
+        col: 3,
+        orientation: 'horizontal',
+        row: 1,
+      }),
+    ).toEqual({ x: 0, y: 0 });
+  });
 });
