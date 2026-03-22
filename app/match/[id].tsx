@@ -1894,6 +1894,8 @@ export function GameRoom() {
   // Keep these ratios in sync with the vertical board art fit in Board.tsx.
   const boardArtInsetTop = 0.024;
   const boardArtInsetBottom = 0.018;
+  const boardArtInsetLeft = 0.36;
+  const boardArtInsetRight = 0.385;
   const boardOuterPadding = boardFramePadding * 2 + boardInnerPadding * 2;
   const verticalBoardRows = BOARD_COLS;
   const verticalBoardCols = BOARD_ROWS;
@@ -1981,7 +1983,7 @@ export function GameRoom() {
     };
   }, [boardTargetFrame, isMobileWebLayout, useMobileSideReserveRails]);
   const showMobileWebDetachedDiceVisual = mobileWebDiceVisualFrame !== null;
-  const shouldDetachDiceVisual = isMatchStageExternal || showWebSideDiceVisual || showMobileWebDetachedDiceVisual;
+  const shouldDetachDiceVisual = isMatchStageExternal || showWebSideDiceVisual || showMobileWebDetachedDiceVisual || (!isWebLayout && useMobileSideReserveRails);
   const detachedDiceVisualPlacement = shouldDetachDiceVisual ? 'external' : 'embedded';
   const mobileStatusRowHeight = Math.max(
     mobileScoreRowHeight,
@@ -2074,6 +2076,50 @@ export function GameRoom() {
     viewportWidth,
   ]);
   const showMobileWebUnderBoardDiceOverlay = isWebLayout && mobileWebUnderBoardDiceFrame !== null;
+
+  const mobileBoardGapFrame = useMemo(() => {
+    if (!isMobileLayout || !useMobileSideReserveRails || isWebLayout || !boardTargetFrame) return null;
+
+    const gridLeft = boardTargetFrame.x + boardTargetFrame.width * boardArtInsetLeft;
+    const gridWidth = boardTargetFrame.width * (1 - boardArtInsetLeft - boardArtInsetRight);
+    const gridTop = boardTargetFrame.y + boardTargetFrame.height * boardArtInsetTop;
+    const gridHeight = boardTargetFrame.height * (1 - boardArtInsetTop - boardArtInsetBottom);
+    const cellWidth = gridWidth / verticalBoardCols;
+    const rowHeight = gridHeight / verticalBoardRows;
+
+    // Gap rows 4 and 5 (0-indexed) — the narrow passage between the two player sections
+    const gapTop = gridTop + 4 * rowHeight;
+    const gapHeight = 2 * rowHeight;
+
+    return {
+      left: {
+        left: Math.round(gridLeft),
+        top: Math.round(gapTop),
+        width: Math.round(cellWidth),
+        height: Math.round(gapHeight),
+      },
+      right: {
+        left: Math.round(gridLeft + 2 * cellWidth),
+        top: Math.round(gapTop),
+        width: Math.round(cellWidth),
+        height: Math.round(gapHeight),
+      },
+      cellSize: Math.round(cellWidth),
+    };
+  }, [
+    boardArtInsetBottom,
+    boardArtInsetLeft,
+    boardArtInsetRight,
+    boardArtInsetTop,
+    boardTargetFrame,
+    isMobileLayout,
+    isWebLayout,
+    useMobileSideReserveRails,
+    verticalBoardCols,
+    verticalBoardRows,
+  ]);
+  const showMobileBoardGapDice = !isWebLayout && useMobileSideReserveRails && mobileBoardGapFrame !== null;
+
   const mobileScoreOverlayTop = baseMobileScoreOverlayTop + mobileContentVerticalShift;
   const mobileBoardOffsetTop = baseMobileBoardOffsetTop + mobileContentVerticalShift;
 
@@ -2167,10 +2213,10 @@ export function GameRoom() {
 
     return {
       left,
-      top: mobileScoreOverlayTop,
+      top: mobileScoreOverlayTop - mobileHeaderLift,
       width: overlayWidth,
     };
-  }, [darkTrayFrame, mobileScoreOverlayTop, useMobileSideReserveRails, viewportWidth]);
+  }, [darkTrayFrame, mobileHeaderLift, mobileScoreOverlayTop, useMobileSideReserveRails, viewportWidth]);
   const mobileWebTrayRollResultFrame = useMemo(() => {
     if (
       !useMobileSideReserveRails ||
@@ -2485,6 +2531,61 @@ export function GameRoom() {
           >
             {gameState.rollValue}
           </Text>
+        </View>
+      ) : null}
+
+      {showMobileBoardGapDice && mobileBoardGapFrame ? (
+        <View
+          pointerEvents="none"
+          style={[
+            styles.mobileBoardGapOverlay,
+            {
+              left: mobileBoardGapFrame.left.left,
+              top: mobileBoardGapFrame.left.top,
+              width: mobileBoardGapFrame.left.width,
+              height: mobileBoardGapFrame.left.height,
+            },
+          ]}
+        >
+          <DiceStageVisual
+            animationDurationMs={diceAnimationDurationMs}
+            value={gameState.rollValue}
+            rolling={rollingVisual}
+            canRoll={introsComplete && canRoll}
+            compact
+            onResultShown={handleRollResultShown}
+            visible={showPersistentDiceVisual}
+          />
+        </View>
+      ) : null}
+      {showMobileBoardGapDice && mobileBoardGapFrame ? (
+        <View
+          style={[
+            styles.mobileBoardGapOverlay,
+            {
+              left: mobileBoardGapFrame.right.left,
+              top: mobileBoardGapFrame.right.top,
+              width: mobileBoardGapFrame.right.width,
+              height: mobileBoardGapFrame.right.height,
+            },
+          ]}
+        >
+          <Dice
+            animationDurationMs={diceAnimationDurationMs}
+            value={gameState.rollValue}
+            rolling={rollingVisual}
+            onRoll={handleRoll}
+            onResultShown={handleRollResultShown}
+            canRoll={introsComplete && canRoll}
+            pressedIn={introsComplete ? isRollButtonPressedIn : false}
+            mode="stage"
+            compact
+            showNumericResult={false}
+            showStatusCopy={false}
+            showVisual={false}
+            visualPlacement="external"
+            artSize={mobileBoardGapFrame.cellSize}
+          />
         </View>
       ) : null}
 
@@ -2923,7 +3024,7 @@ export function GameRoom() {
                 ) : null}
               </View>
 
-              {useMobileSideReserveRails && !showMobileWebUnderBoardDiceOverlay ? (
+              {useMobileSideReserveRails && !showMobileWebUnderBoardDiceOverlay && !showMobileBoardGapDice ? (
                 <View style={[styles.mobileBottomDiceDock, styles.mobileBottomDiceDockUnderBoard]}>
                   <View style={styles.mobileDiceRow}>
                     <View style={[styles.mobileDiceWrap, { width: mobileDiceDockWidth }]}>
@@ -3266,6 +3367,12 @@ const styles = StyleSheet.create({
   mobileWebDiceVisualOverlay: {
     position: 'absolute',
     zIndex: 4,
+  },
+  mobileBoardGapOverlay: {
+    position: 'absolute',
+    zIndex: 5,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   mobileWebUnderBoardDiceOverlay: {
     position: 'absolute',
