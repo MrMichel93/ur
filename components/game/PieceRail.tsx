@@ -418,32 +418,35 @@ export const PieceRail: React.FC<PieceRailProps> = ({
           Reserve tray artwork is rendered as a background PNG.
           Horizontal reserve stacks align to a safe lane derived from the tray art
           so pieces stay inside the recessed tray well instead of drifting onto the rim.
+          Hidden on compact vertical (mobile) rails where pieces float without a tray surround.
         */}
-        <View
-          pointerEvents="none"
-          style={[
-            styles.trayArtLayer,
-            isVertical && {
-              transform: [{ translateY: verticalTrayOffsetY }],
-            },
-          ]}
-        >
-          <Image
-            source={TRAY_ASSETS[color]}
-            resizeMode="contain"
+        {!isCompactVerticalRail && (
+          <View
+            pointerEvents="none"
             style={[
-              styles.trayArt,
-              {
-                transform: [
-                  ...(isVertical ? [{ rotate: '90deg' as const }] : []),
-                  { translateX: TRAY_ART_FIT.offsetX },
-                  { translateY: TRAY_ART_FIT.offsetY },
-                  { scale: trayArtScale },
-                ],
+              styles.trayArtLayer,
+              isVertical && {
+                transform: [{ translateY: verticalTrayOffsetY }],
               },
             ]}
-          />
-        </View>
+          >
+            <Image
+              source={TRAY_ASSETS[color]}
+              resizeMode="contain"
+              style={[
+                styles.trayArt,
+                {
+                  transform: [
+                    ...(isVertical ? [{ rotate: '90deg' as const }] : []),
+                    { translateX: TRAY_ART_FIT.offsetX },
+                    { translateY: TRAY_ART_FIT.offsetY },
+                    { scale: trayArtScale },
+                  ],
+                },
+              ]}
+            />
+          </View>
+        )}
         <Animated.View style={[styles.activeGlow, glowStyle]} />
 
         <View
