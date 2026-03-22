@@ -11,12 +11,14 @@ import { useRouter } from 'expo-router';
 import React from 'react';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Image, Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const homeWideBackground = require('../../assets/images/home_bg.png');
 const homeMobileBackground = require('../../assets/images/home_bg_mobile.png');
 
 export default function AuthenticatedHome() {
   const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user, logout } = useAuth();
   const [isLoggingOut, setIsLoggingOut] = React.useState(false);
@@ -26,6 +28,11 @@ export default function AuthenticatedHome() {
   const useWideWebMenuLayout = Platform.OS === 'web' && !isCompactLayout;
   const showInlineGuestBackButton = user?.provider === 'guest' && isCompactLayout;
   const blackButtonLabel = styles.blackButtonLabel;
+
+  // Dynamic top padding for compact layout: safe area + space to clear the authBar/backButton
+  const compactTopPadding = isCompactLayout ? insets.top + 66 : undefined;
+  // Dynamic authBar/backButton top position: just below the status bar
+  const compactAbsoluteTop = isCompactLayout ? insets.top + urTheme.spacing.sm : undefined;
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
@@ -60,7 +67,11 @@ export default function AuthenticatedHome() {
 
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={[styles.scrollContent, isCompactLayout && styles.scrollContentCompact]}
+        contentContainerStyle={[
+          styles.scrollContent,
+          isCompactLayout && styles.scrollContentCompact,
+          compactTopPadding != null && { paddingTop: compactTopPadding },
+        ]}
         showsVerticalScrollIndicator={false}
         bounces={false}
       >
@@ -70,13 +81,17 @@ export default function AuthenticatedHome() {
               await logout();
               router.replace('/(auth)/login');
             }}
-            style={({ pressed }) => [styles.backButton, pressed && styles.backButtonPressed]}
+            style={({ pressed }) => [
+              styles.backButton,
+              pressed && styles.backButtonPressed,
+              compactAbsoluteTop != null && { top: compactAbsoluteTop },
+            ]}
             accessibilityLabel="Back to login"
           >
             <MaterialIcons name="arrow-back" size={22} color="#F7E9D2" />
           </Pressable>
         ) : user?.provider !== 'guest' ? (
-          <View style={[styles.authBar, isCompactLayout && styles.authBarCompact]}>
+          <View style={[styles.authBar, isCompactLayout && styles.authBarCompact, compactAbsoluteTop != null && { top: compactAbsoluteTop }]}>
             <View>
               <Text style={styles.authLabel}>Signed in as</Text>
               <Text style={[styles.authValue, isCompactLayout && styles.authValueCompact]}>
@@ -219,6 +234,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: urTheme.spacing.md,
     paddingTop: urTheme.spacing.xl + urTheme.spacing.lg,
     paddingBottom: urTheme.spacing.lg,
+    justifyContent: 'flex-start',
   },
   texture: {
     ...StyleSheet.absoluteFillObject,

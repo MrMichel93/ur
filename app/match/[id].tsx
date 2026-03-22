@@ -803,10 +803,10 @@ export function GameRoom() {
 
         setBoardDropTargetFrame((previous) =>
           previous &&
-          previous.x === nextFrame.x &&
-          previous.y === nextFrame.y &&
-          previous.width === nextFrame.width &&
-          previous.height === nextFrame.height
+            previous.x === nextFrame.x &&
+            previous.y === nextFrame.y &&
+            previous.width === nextFrame.width &&
+            previous.height === nextFrame.height
             ? previous
             : nextFrame,
         );
@@ -818,10 +818,10 @@ export function GameRoom() {
   const handleLightTrayFrameLayout = React.useCallback((nextFrame: PieceRailFrameMeasurement) => {
     setLightTrayFrame((previous) =>
       previous &&
-      previous.x === nextFrame.x &&
-      previous.y === nextFrame.y &&
-      previous.width === nextFrame.width &&
-      previous.height === nextFrame.height
+        previous.x === nextFrame.x &&
+        previous.y === nextFrame.y &&
+        previous.width === nextFrame.width &&
+        previous.height === nextFrame.height
         ? previous
         : nextFrame,
     );
@@ -830,10 +830,10 @@ export function GameRoom() {
   const handleDarkTrayFrameLayout = React.useCallback((nextFrame: PieceRailFrameMeasurement) => {
     setDarkTrayFrame((previous) =>
       previous &&
-      previous.x === nextFrame.x &&
-      previous.y === nextFrame.y &&
-      previous.width === nextFrame.width &&
-      previous.height === nextFrame.height
+        previous.x === nextFrame.x &&
+        previous.y === nextFrame.y &&
+        previous.width === nextFrame.width &&
+        previous.height === nextFrame.height
         ? previous
         : nextFrame,
     );
@@ -1854,10 +1854,10 @@ export function GameRoom() {
     : isPrivateMatch
       ? 'Private Match'
       : isPracticeModeMatch
-      ? effectiveMatchConfig.displayName
-      : isOffline
-        ? 'Local Match'
-        : 'Online Match';
+        ? effectiveMatchConfig.displayName
+        : isOffline
+          ? 'Local Match'
+          : 'Online Match';
 
   const viewportHorizontalPadding = 0;
   const stageContentWidth = Math.min(Math.max(viewportWidth - viewportHorizontalPadding * 2, 0), urTheme.layout.stage.maxWidth);
@@ -1884,7 +1884,7 @@ export function GameRoom() {
         160,
         Math.min(urTheme.layout.boardMax, stageContentWidth - mobileReserveColumnWidth * 2 - boardClusterGap * 2),
       )
-    : Math.max(224, Math.min(urTheme.layout.boardMax, stageContentWidth - 2));
+      : Math.max(224, Math.min(urTheme.layout.boardMax, stageContentWidth - 2));
 
   // Must match Board.tsx base width before boardScale is applied.
   const boardBaseWidth = Math.min(Math.max(viewportWidth - urTheme.spacing.lg, 0), urTheme.layout.boardMax);
@@ -1928,9 +1928,7 @@ export function GameRoom() {
   const viewportBottomPadding = Math.max(insets.bottom, urTheme.spacing.xs);
   const topChromeHeight = 36;
   const webTopChromeTopInset = Math.max(insets.top, urTheme.spacing.xs);
-  const mobileTopChromeOffset = isMobileLayout
-    ? Math.max(urTheme.spacing.sm, Math.round(viewportHeight * 0.012))
-    : 0;
+  const mobileTopChromeOffset = 0;
   const topChromeTop = isWebLayout && boardTargetFrame
     ? Math.round(
       webTopChromeTopInset +
@@ -1994,12 +1992,13 @@ export function GameRoom() {
       ? 0
       : Math.max(urTheme.spacing.md, Math.round(viewportHeight * 0.024))
     : 0;
-  const mobileBoardTopGap = Math.max(urTheme.spacing.xs, Math.round(viewportHeight * 0.012));
+  const mobileBoardTopGap = Math.max(2, Math.round(viewportHeight * 0.003));
   const mobileWebBoardLift = useMobileSideReserveRails
-    ? Math.max(urTheme.spacing.sm, Math.round(viewportHeight * 0.02))
+    ? Math.max(urTheme.spacing.sm, Math.round(viewportHeight * 0.042))
     : 0;
+  const mobileHeaderLift = mobileWebBoardLift;
   const mobileChromeToScoreGap = isMobileLayout
-    ? Math.max(urTheme.spacing.sm, Math.round(viewportHeight * 0.014))
+    ? Math.max(4, Math.round(viewportHeight * 0.005))
     : 0;
   const baseMobileScoreOverlayTop = isMobileLayout
     ? topChromeBottom + mobileChromeToScoreGap
@@ -2489,7 +2488,7 @@ export function GameRoom() {
         </View>
       ) : null}
 
-      <View style={[styles.topChrome, useInlineTopChromeLayout && styles.topChromeMobile, { top: topChromeTop }]}>
+      <View style={[styles.topChrome, useInlineTopChromeLayout && styles.topChromeMobile, { top: topChromeTop - mobileHeaderLift }]}>
         <View style={[styles.topChromeLeft, useInlineTopChromeLayout && styles.topChromeLeftMobile]}>
           <Pressable
             onPress={handleExit}
@@ -2623,7 +2622,7 @@ export function GameRoom() {
               styles.scoreRow,
               styles.scoreRowOverlay,
               isMobileLayout && isTurnTimerEnabled && styles.mobileScoreRow,
-              { top: mobileScoreOverlayTop },
+              { top: mobileScoreOverlayTop - mobileHeaderLift },
               isMobileLayout && styles.scoreRowOverlayMobile,
               isMobileLayout && { left: mobileScoreRowInset, right: mobileScoreRowInset },
             ]}
@@ -2855,7 +2854,7 @@ export function GameRoom() {
             >
               <View
                 style={[
-                styles.mobileBoardStageRow,
+                  styles.mobileBoardStageRow,
                   useMobileSideReserveRails && { gap: boardClusterGap },
                 ]}
               >
