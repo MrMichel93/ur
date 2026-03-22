@@ -1983,7 +1983,7 @@ export function GameRoom() {
     };
   }, [boardTargetFrame, isMobileWebLayout, useMobileSideReserveRails]);
   const showMobileWebDetachedDiceVisual = mobileWebDiceVisualFrame !== null;
-  const shouldDetachDiceVisual = isMatchStageExternal || showWebSideDiceVisual || showMobileWebDetachedDiceVisual || (!isWebLayout && useMobileSideReserveRails);
+  const shouldDetachDiceVisual = isMatchStageExternal || showWebSideDiceVisual || showMobileWebDetachedDiceVisual || useMobileSideReserveRails;
   const detachedDiceVisualPlacement = shouldDetachDiceVisual ? 'external' : 'embedded';
   const mobileStatusRowHeight = Math.max(
     mobileScoreRowHeight,
@@ -2078,7 +2078,7 @@ export function GameRoom() {
   const showMobileWebUnderBoardDiceOverlay = isWebLayout && mobileWebUnderBoardDiceFrame !== null;
 
   const mobileBoardGapFrame = useMemo(() => {
-    if (!isMobileLayout || !useMobileSideReserveRails || isWebLayout || !boardTargetFrame) return null;
+    if (!isMobileLayout || !useMobileSideReserveRails || !boardTargetFrame) return null;
 
     const gridLeft = boardTargetFrame.x + boardTargetFrame.width * boardArtInsetLeft;
     const gridWidth = boardTargetFrame.width * (1 - boardArtInsetLeft - boardArtInsetRight);
@@ -2113,12 +2113,16 @@ export function GameRoom() {
     boardArtInsetTop,
     boardTargetFrame,
     isMobileLayout,
-    isWebLayout,
     useMobileSideReserveRails,
     verticalBoardCols,
     verticalBoardRows,
   ]);
-  const showMobileBoardGapDice = !isWebLayout && useMobileSideReserveRails && mobileBoardGapFrame !== null;
+  const showMobileBoardGapDice = useMobileSideReserveRails && mobileBoardGapFrame !== null;
+  const shouldShowMobileWebUnderBoardDice =
+    useMobileSideReserveRails &&
+    showMobileWebUnderBoardDiceOverlay &&
+    !showMobileBoardGapDice &&
+    mobileWebUnderBoardDiceFrame !== null;
 
   const mobileScoreOverlayTop = baseMobileScoreOverlayTop + mobileContentVerticalShift;
   const mobileBoardOffsetTop = baseMobileBoardOffsetTop + mobileContentVerticalShift;
@@ -2451,7 +2455,7 @@ export function GameRoom() {
           />
         </View>
       ) : null}
-      {useMobileSideReserveRails && showMobileWebUnderBoardDiceOverlay && mobileWebUnderBoardDiceFrame ? (
+      {shouldShowMobileWebUnderBoardDice && mobileWebUnderBoardDiceFrame ? (
         <View
           style={[
             styles.mobileWebUnderBoardDiceOverlay,
